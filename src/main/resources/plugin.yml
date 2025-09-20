@@ -1,11 +1,7 @@
 name: NewPlayerWorld-Maski
 version: '${project.version}'
-main: com.mcmiddleearth.newplayerworldmaski.NewPlayerWorldMaski
-api-version: 1.18
-authors: [ Jubo, maski98 ]
-description: NewPlayerWorld Listener
+main: com.mcmiddleearth.introduction.IntroductionPlugin
+api-version: 1.21
+authors: [ Eriol_Eandur ]
+description: Short new player intro with compatibility check.
 
-permissions:
-  npw.staff:
-    description: for administrative purposes
-    default: op
