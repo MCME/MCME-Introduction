@@ -1,5 +1,7 @@
 package com.mcmiddleearth.introduction;
 
+import com.mcmiddleearth.introduction.rooms.Room;
+import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -28,10 +30,16 @@ public class PlayerListener implements Listener {
         //if in room switch to next one
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
         if(room!=null) {
-            event.getPlayer().teleport(room.getTpTarget());
+            Location tpTarget = room.getTpTarget();
             Room next = room.getNext();
+            while(next != null && next.isSkipped(event.getPlayer())) {
+                tpTarget = next.getTpTarget();
+                next = next.getNext();
+            }
+            event.getPlayer().teleport(tpTarget);
             if(next != null) {
                 next.setCameraOverlay(event.getPlayer());
+                next.sendChat(event.getPlayer());
             }
         }
     }
@@ -42,6 +50,7 @@ public class PlayerListener implements Listener {
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
         if(room!=null) {
             room.setCameraOverlay(event.getPlayer());
+            room.sendChat(event.getPlayer());
             event.setCancelled(true);
         }
     }
@@ -52,6 +61,7 @@ public class PlayerListener implements Listener {
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
         if(room!=null) {
             room.setCameraOverlay(event.getPlayer());
+            room.sendChat(event.getPlayer());
         }
     }
 }
