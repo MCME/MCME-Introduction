@@ -1,10 +1,27 @@
-blindness:
-  time: 3
-cinematicTime:
-  1: 10
-  2: 20
-  3: 30
-cinematicCommand:
-  1: cinematic1
-  2: cinematic2
-  3: cinematic3
+firstRoom:
+  world: hub
+  pos1:
+  pos2:
+  tpTarget:
+    world: hub
+    location:
+  tpTransitionComponent: {"text":"\uE01f", "font":"fade_black"; times: 10 2 10}
+  cameraOverlay: "minecraft:???/welcome_screen.png"
+secondRoom:
+  world: hub
+  pos1:
+  pos2:
+  tpTarget:
+    world: hub
+    location:
+  tpTransitionComponent: {"text":"\uE01f", "font":"fade_black"; times: 10 2 10}
+  overlayWarningVersion: "minecraft:???/warning_game_version.png"
+  overlayWarningModded: "minecraft:???/warning_modded.png"
+  overlayWarningMcme: "minecraft:???/warning_mcme.png"
+  overlayWarningMissingMod: "minecraft:???/warning_missing_mod.png"
+  messageUnsupportedVanilla: "MCME currently supports: <supported game versions>. How to change game version: https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/. Use /ignore to proceed to the server hub."
+  messageShaders: "Shaders: MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download here: https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"
+  messageOptifine: "Optifine Users: If you only need Optifine to run the game smoothly (no shader use) you can disable mipmapping in Options>Video Settings> Mipmapping Levels. Make sure to move the slider all the way to the left. Then type: <command to confirm optifine client> in chat."
+  messageUnsupportedModded: "Game Version: Your game version is unsupported. MCME currently supports: <supported game versions>"
+  messageManualMods: "Manual Mod Loading/Custom Launchers: To manually add the required mods to your game check the modlist: https://www.mcmiddleearth.com/community/threads/recomended-mods-lists.7641/"
+  messageRunInstaller: "Run the installer again. Download here: https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"

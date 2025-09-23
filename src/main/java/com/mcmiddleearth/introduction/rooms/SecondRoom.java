@@ -11,7 +11,7 @@ import java.util.Objects;
 public class SecondRoom extends Room {
 
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
-    private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded, messageManualMods;
+    private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded, messageManualMods, messageRunInstaller;
 
     public SecondRoom(ConfigurationSection config) {
         super(config);
@@ -29,15 +29,66 @@ public class SecondRoom extends Room {
                 .deserialize(Objects.requireNonNull(config.getString("messageUnsupportedModded")));
         messageManualMods = JSONComponentSerializer.json()
                 .deserialize(Objects.requireNonNull(config.getString("messageManualMods")));
+        messageRunInstaller = JSONComponentSerializer.json()
+                .deserialize(Objects.requireNonNull(config.getString("messageRunInstaller")));
     }
 
     @Override
     public boolean isSkipped(Player player) {
-        return super.isSkipped(player);
+        return isSupportedVersion(player)
+                    && ((!isForge(player) && !isFabric(player))
+                        || (isFabric(player) && isMcmeMarker(player)));
     }
 
     @Override
     public NamespacedKey selectCameraOverlay(Player player) {
-        return null;
+        if(isForge(player)) {
+            return overlayWarningModded;
+        } else if(isFabric(player)) {
+            if(isMcmeMarker(player)) {
+                return overlayWarningMcme;
+            } else {
+                return overlayWarningMissingMod;
+            }
+        }
+    }
+
+    @Override
+    public void sendChat(Player player) {
+        if(isForge(player)) {
+            if(!isSupportedVersion(player)) {
+                player.sendMessage(messageUnsupportedModded);
+            };
+            player.sendMessage(messageShaders);
+            player.sendMessage(messageOptifine);
+        } else if(isFabric(player)) {
+            if(isMcmeMarker(player)) {
+                player.sendMessage(messageRunInstaller);
+            } else {
+                if(!isSupportedVersion(player)) {
+                    player.sendMessage(messageUnsupportedModded);
+                }
+                player.sendMessage(messageShaders);
+                player.sendMessage(messageManualMods);
+            }
+        } else {
+            player.sendMessage(messageUnsupportedVanilla);
+        }
+    }
+
+    private boolean isSupportedVersion(Player player) {
+        return true;
+    }
+
+    private boolean isForge(Player player) {
+
+    }
+
+    private boolean isFabric(Player player) {
+
+    }
+
+    private boolean isMcmeMarker(Player player) {
+
     }
 }
