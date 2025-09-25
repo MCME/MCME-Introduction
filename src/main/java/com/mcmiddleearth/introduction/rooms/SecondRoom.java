@@ -2,6 +2,7 @@ package com.mcmiddleearth.introduction.rooms;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -50,6 +51,8 @@ public class SecondRoom extends Room {
             } else {
                 return overlayWarningMissingMod;
             }
+        } else {
+            return overlayWarningVersion;
         }
     }
 
@@ -77,15 +80,15 @@ public class SecondRoom extends Room {
     }
 
     private boolean isSupportedVersion(Player player) {
-        return true;
+        return Bukkit.getServer().getVersion().equals(player.getClientOption());
     }
 
     private boolean isForge(Player player) {
-
+        return player.getClientBrandName()!=null && player.getClientBrandName().contains("Forge");
     }
 
     private boolean isFabric(Player player) {
-
+        return player.getClientBrandName()!=null && player.getClientBrandName().contains("Forge");
     }
 
     private boolean isMcmeMarker(Player player) {

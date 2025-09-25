@@ -30,13 +30,12 @@ public class PlayerListener implements Listener {
         //if in room switch to next one
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
         if(room!=null) {
-            Location tpTarget = room.getTpTarget();
             Room next = room.getNext();
             while(next != null && next.isSkipped(event.getPlayer())) {
-                tpTarget = next.getTpTarget();
+                room = next;
                 next = next.getNext();
             }
-            event.getPlayer().teleport(tpTarget);
+            room.teleport(event.getPlayer());
             if(next != null) {
                 next.setCameraOverlay(event.getPlayer());
                 next.sendChat(event.getPlayer());

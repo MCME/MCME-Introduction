@@ -47,4 +47,8 @@ public final class IntroductionPlugin extends JavaPlugin {
         }
         return null;
     }
+
+    public Room getSecond() {
+        return second;
+    }
 }

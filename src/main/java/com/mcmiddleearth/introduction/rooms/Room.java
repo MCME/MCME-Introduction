@@ -1,7 +1,10 @@
 package com.mcmiddleearth.introduction.rooms;
 
+import com.mcmiddleearth.introduction.IntroductionPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
+import net.kyori.adventure.title.Title;
+import net.kyori.adventure.title.TitlePart;
 import org.bukkit.*;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -10,7 +13,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.EquippableComponent;
 
+import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public abstract class Room {
 
@@ -49,8 +54,14 @@ public abstract class Room {
                 && pos1.getZ()<location.getZ() && pos2.getZ()>location.getZ();
     }
 
-    public Location getTpTarget() {
-        return tpTarget;
+    public void teleport(Player player) {
+        Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])),
+                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])),
+                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])));
+        Title black = Title.title(tpTransitionTitle,Component.empty(),times);
+        player.showTitle(black);
+        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> player.teleport(tpTarget),
+                                           Long.parseLong(tpTransitionTimes[0]));
     }
 
     @SuppressWarnings("UnstableApiUsage")
