@@ -1,6 +1,7 @@
 package com.mcmiddleearth.introduction;
 
 import com.mcmiddleearth.introduction.rooms.Room;
+import io.papermc.paper.configuration.type.fallback.FallbackValue;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
@@ -16,18 +17,19 @@ public class IgnoreCommandHandler implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String @NotNull [] args) {
         IntroductionPlugin plugin = IntroductionPlugin.getInstance();
-        Room secondRoom = plugin.getSecond();
         if(sender instanceof Player player) {
             Room playerRoom = plugin.getRoom(player);
-            if(secondRoom.equals(playerRoom)) {
-                secondRoom.teleport(player);
+            if(playerRoom != null && playerRoom.canIgnore()) {
+                PlayerListener.teleportToNextRoom(playerRoom, player);
             } else {
                 player.sendMessage(Component.text("There is no issue you can ignore.").color(NamedTextColor.RED));
             }
         } else {
             sender.sendMessage("Player only command!");
+            PlayerListener.showStatus();
+            IntroductionPlugin.getInstance().reloadConfig();
         }
-        return false;
+        return true;
     }
 
     @Override

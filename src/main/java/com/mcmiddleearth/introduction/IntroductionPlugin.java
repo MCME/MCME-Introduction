@@ -25,7 +25,7 @@ public final class IntroductionPlugin extends JavaPlugin {
         instance = this;
         getServer().getPluginManager().registerEvents(new PlayerListener(),this);
         IgnoreCommandHandler ignoreHandler = new IgnoreCommandHandler();
-        PluginCommand ignoreCommand = getServer().getPluginCommand("ignore");
+        PluginCommand ignoreCommand = getServer().getPluginCommand("ignoreissue");
         if(ignoreCommand != null) {
             ignoreCommand.setExecutor(ignoreHandler);
             ignoreCommand.setTabCompleter(ignoreHandler);
@@ -40,14 +40,17 @@ public final class IntroductionPlugin extends JavaPlugin {
     public static IntroductionPlugin getInstance(){return instance;}
 
     public Room getRoom(Player player) {
-        if(first.isInside(player.getLocation())) {
+        if(first.isInside(player)) {
             return first;
-        } else if(second.isInside(player.getLocation())) {
+        } else if(second.isInside(player)) {
             return second;
         }
         return null;
     }
 
+    public Room getFirst() {
+        return first;
+    }
     public Room getSecond() {
         return second;
     }

@@ -1,13 +1,16 @@
 package com.mcmiddleearth.introduction.rooms;
 
+import com.mcmiddleearth.architect.serverResoucePack.RpManager;
+import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
+import java.util.logging.Logger;
 
 public class SecondRoom extends Room {
 
@@ -20,18 +23,12 @@ public class SecondRoom extends Room {
         this.overlayWarningModded = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningModded")));
         this.overlayWarningMcme = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningMcme")));
         this.overlayWarningMissingMod = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningMissingMod")));
-        messageUnsupportedVanilla = JSONComponentSerializer.json()
-                .deserialize(Objects.requireNonNull(config.getString("messageUnsupportedVanilla")));
-        messageShaders = JSONComponentSerializer.json()
-                .deserialize(Objects.requireNonNull(config.getString("messageShaders")));
-        messageOptifine = JSONComponentSerializer.json()
-                .deserialize(Objects.requireNonNull(config.getString("messageOptifine")));
-        messageUnsupportedModded = JSONComponentSerializer.json()
-                .deserialize(Objects.requireNonNull(config.getString("messageUnsupportedModded")));
-        messageManualMods = JSONComponentSerializer.json()
-                .deserialize(Objects.requireNonNull(config.getString("messageManualMods")));
-        messageRunInstaller = JSONComponentSerializer.json()
-                .deserialize(Objects.requireNonNull(config.getString("messageRunInstaller")));
+        messageUnsupportedVanilla = getMessage(config.getString("messageUnsupportedVanilla"));
+        messageShaders = getMessage(config.getString("messageShaders"));
+        messageOptifine = getMessage(config.getString("messageOptifine"));
+        messageUnsupportedModded = getMessage(config.getString("messageUnsupportedModded"));
+        messageManualMods = getMessage(config.getString("messageManualMods"));
+        messageRunInstaller = getMessage(config.getString("messageRunInstaller"));
     }
 
     @Override
@@ -58,17 +55,18 @@ public class SecondRoom extends Room {
 
     @Override
     public void sendChat(Player player) {
-        if(isForge(player)) {
-            if(!isSupportedVersion(player)) {
+        if (isForge(player)) {
+            if (!isSupportedVersion(player)) {
                 player.sendMessage(messageUnsupportedModded);
-            };
+            }
+            ;
             player.sendMessage(messageShaders);
             player.sendMessage(messageOptifine);
-        } else if(isFabric(player)) {
-            if(isMcmeMarker(player)) {
+        } else if (isFabric(player)) {
+            if (isMcmeMarker(player)) {
                 player.sendMessage(messageRunInstaller);
             } else {
-                if(!isSupportedVersion(player)) {
+                if (!isSupportedVersion(player)) {
                     player.sendMessage(messageUnsupportedModded);
                 }
                 player.sendMessage(messageShaders);
@@ -80,7 +78,11 @@ public class SecondRoom extends Room {
     }
 
     private boolean isSupportedVersion(Player player) {
-        return Bukkit.getServer().getVersion().equals(player.getClientOption());
+Logger.getGlobal().info(Bukkit.getServer().getMinecraftVersion());
+        int protocolId = Via.getAPI().getPlayerVersion(player);
+        ProtocolVersion version = ProtocolVersion.getProtocol(protocolId);
+Logger.getGlobal().info(version.getName());
+        return Bukkit.getServer().getMinecraftVersion().equals(version.getName());
     }
 
     private boolean isForge(Player player) {
@@ -92,6 +94,6 @@ public class SecondRoom extends Room {
     }
 
     private boolean isMcmeMarker(Player player) {
-
+        return RpManager.isSodiumClient(player);
     }
 }

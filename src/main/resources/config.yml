@@ -1,24 +1,27 @@
+joinDelay: 10
+reminderDuration: 150
 firstRoom:
   world: hub
-  pos1:
-  pos2:
+  pos1: -4094 -39 -4375
+  pos2: -4096 -43 -4378
   tpTarget:
-    world: hub
-    location:
-  tpTransitionComponent: {"text":"\uE01f", "font":"fade_black"; times: 10 2 10}
-  cameraOverlay: "minecraft:???/welcome_screen.png"
+    pos: -4099 -38 -4379
+  tpTransitionComponent: '{"text":"\uE01f", "font":"fade_black"}'
+  tpTransitionTimes: 10 2 10
+  cameraOverlay: "minecraft:welcome_screen"
 secondRoom:
   world: hub
-  pos1:
-  pos2:
+  pos1: -4098 -39 -4377
+  pos2: -4101 -43 -4381
   tpTarget:
-    world: hub
-    location:
-  tpTransitionComponent: {"text":"\uE01f", "font":"fade_black"; times: 10 2 10}
-  overlayWarningVersion: "minecraft:???/warning_game_version.png"
-  overlayWarningModded: "minecraft:???/warning_modded.png"
-  overlayWarningMcme: "minecraft:???/warning_mcme.png"
-  overlayWarningMissingMod: "minecraft:???/warning_missing_mod.png"
+    pos: -4099 -39 -4372
+  tpTransitionComponent: '{"text":"\uE01f", "font":"fade_black"'
+  tpTransitionTimes: 10 2 10
+  canIgnore: true
+  overlayWarningVersion: "minecraft:warning_game_version"
+  overlayWarningModded: "minecraft:warning_modded"
+  overlayWarningMcme: "minecraft:warning_mcme"
+  overlayWarningMissingMod: "minecraft:warning_missing_mod"
   messageUnsupportedVanilla: "MCME currently supports: <supported game versions>. How to change game version: https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/. Use /ignore to proceed to the server hub."
   messageShaders: "Shaders: MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download here: https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"
   messageOptifine: "Optifine Users: If you only need Optifine to run the game smoothly (no shader use) you can disable mipmapping in Options>Video Settings> Mipmapping Levels. Make sure to move the slider all the way to the left. Then type: <command to confirm optifine client> in chat."
