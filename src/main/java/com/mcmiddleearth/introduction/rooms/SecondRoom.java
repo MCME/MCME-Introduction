@@ -10,7 +10,6 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
-import java.util.logging.Logger;
 
 public class SecondRoom extends Room {
 
@@ -59,7 +58,6 @@ public class SecondRoom extends Room {
             if (!isSupportedVersion(player)) {
                 player.sendMessage(messageUnsupportedModded);
             }
-            ;
             player.sendMessage(messageShaders);
             player.sendMessage(messageOptifine);
         } else if (isFabric(player)) {
@@ -77,23 +75,23 @@ public class SecondRoom extends Room {
         }
     }
 
-    private boolean isSupportedVersion(Player player) {
-Logger.getGlobal().info(Bukkit.getServer().getMinecraftVersion());
+    public boolean isSupportedVersion(Player player) {
+//Logger.getGlobal().info(Bukkit.getServer().getMinecraftVersion());
         int protocolId = Via.getAPI().getPlayerVersion(player);
         ProtocolVersion version = ProtocolVersion.getProtocol(protocolId);
-Logger.getGlobal().info(version.getName());
+//Logger.getGlobal().info(version.getName());
         return Bukkit.getServer().getMinecraftVersion().equals(version.getName());
     }
 
-    private boolean isForge(Player player) {
+    public boolean isForge(Player player) {
         return player.getClientBrandName()!=null && player.getClientBrandName().contains("Forge");
     }
 
-    private boolean isFabric(Player player) {
+    public boolean isFabric(Player player) {
         return player.getClientBrandName()!=null && player.getClientBrandName().contains("Forge");
     }
 
-    private boolean isMcmeMarker(Player player) {
+    public boolean isMcmeMarker(Player player) {
         return RpManager.isSodiumClient(player);
     }
 }

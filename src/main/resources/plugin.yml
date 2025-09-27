@@ -6,7 +6,3 @@ authors: [ Eriol_Eandur ]
 depends: [ MCME-Architect, ViaVersion ]
 description: Short new player intro with compatibility check.
 
-commands:
-  ignoreissue:
-    description: Ignores compatibility issues
-    usage: /ignore

@@ -25,8 +25,10 @@ public abstract class Room {
     private final boolean canIgnore;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
+    private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
     private final Set<UUID> fixedPlayers = new HashSet<>();
 
+    private final Set<UUID> awaitingTeleport = new HashSet<>();
 
     public Room(ConfigurationSection config) {
         World world = Bukkit.getWorld(Objects.requireNonNull(config.getString("world")));
@@ -81,38 +83,70 @@ public abstract class Room {
             playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
             setCameraOverlay(player);
             sendChat(player);
+            playerGamemodes.put(player.getUniqueId(), player.getGameMode());
+            player.setGameMode(GameMode.SPECTATOR);
+        } else {
+            if(!playerGamemodes.containsKey(player.getUniqueId())) {
+                sendChat(player);
+                playerGamemodes.put(player.getUniqueId(), player.getGameMode());
+                player.setGameMode(GameMode.SPECTATOR);
+            }
         }
     }
 
     public void handleExit(Player player) {
-        if(!fixedPlayers.contains(player.getUniqueId()) && playerItems.containsKey(player.getUniqueId())) {
-            removeCameraOverlay(player);
-            playerItems.remove(player.getUniqueId());
-            fixedPlayers.remove(player.getUniqueId());
+Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
+Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
+        if(playerGamemodes.containsKey(player.getUniqueId())) {
+            if(!fixedPlayers.contains(player.getUniqueId())) {
+                removeCameraOverlay(player);
+                playerItems.remove(player.getUniqueId());
+            }
+            player.setGameMode(playerGamemodes.get(player.getUniqueId()));
+            playerGamemodes.remove(player.getUniqueId());
         }
     }
 
-    public void setFixed(Player player, boolean fixed) {
-        if(fixed) {
+    public void handleOverride(Player player, boolean override) {
+        if(override) {
             fixedPlayers.add(player.getUniqueId());
+            if(!playerItems.containsKey(player.getUniqueId())) {
+                playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
+                setCameraOverlay(player);
+                sendChat(player);
+            }
         } else {
             fixedPlayers.remove(player.getUniqueId());
+            if(playerItems.containsKey(player.getUniqueId()) && !isInside(player)) {
+                removeCameraOverlay(player);
+                playerItems.remove(player.getUniqueId());
+            }
         }
     }
 
-    public void teleport(Player player, Room next) {
-        Title.Times times = Title.Times.times(Duration.ofSeconds(Integer.parseInt(tpTransitionTimes[0])),
-                                        Duration.ofSeconds(Integer.parseInt(tpTransitionTimes[1])),
-                                        Duration.ofSeconds(Integer.parseInt(tpTransitionTimes[2])));
+    public boolean isFixed(Player player) {
+        return fixedPlayers.contains(player.getUniqueId());
+    }
+
+    public void teleport(Player player, Room previous, Room next) {
+//Logger.getGlobal().info("SET awaiting Teleport");
+        previous.awaitingTeleport.add(player.getUniqueId());
+//Logger.getGlobal().info("test is awaiting: "+isAwaitingTeleport(player));
+//Logger.getGlobal().info("Second test: "+awaitingTeleport.contains(player.getUniqueId()));
+        Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])*50L),
+                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[1])*50L),
+                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[2])*50L));
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-            handleExit(player);
+            previous.handleExit(player);
             player.teleport(tpTarget);
+            previous.awaitingTeleport.remove(player.getUniqueId());
+//Logger.getGlobal().info("UNSET awaiting teleport");
             if(next != null) {
                 next.handleEnter(player);
             }
-                },Long.parseLong(tpTransitionTimes[0])*20);
+                },Long.parseLong(tpTransitionTimes[0]));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -122,7 +156,7 @@ public abstract class Room {
         EquippableComponent equip = meta.getEquippable();
         equip.setSlot(EquipmentSlot.HEAD);
         NamespacedKey overlay = selectCameraOverlay(player);
-Logger.getGlobal().info("Overlay: "+overlay.asString());
+//Logger.getGlobal().info("Overlay: "+overlay.asString());
         equip.setCameraOverlay(overlay);
         meta.setEquippable(equip);
         overlayItem.setItemMeta(meta);
@@ -142,6 +176,12 @@ Logger.getGlobal().info("Overlay: "+overlay.asString());
 
     public boolean canIgnore() {
         return canIgnore;
+    }
+
+    public boolean isAwaitingTeleport(Player player) {
+//Logger.getGlobal().info("check in room "+this.toString()+" for uuid: "+player.getUniqueId() +" "+awaitingTeleport.contains(player.getUniqueId()));
+//awaitingTeleport.forEach(uuid -> Logger.getGlobal().info(" "+uuid));
+        return awaitingTeleport.contains(player.getUniqueId());
     }
 
     private Location getLocation(World world, String key, ConfigurationSection config) {

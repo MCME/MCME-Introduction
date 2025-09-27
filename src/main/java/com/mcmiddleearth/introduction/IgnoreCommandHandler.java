@@ -20,6 +20,7 @@ public class IgnoreCommandHandler implements TabExecutor {
         if(sender instanceof Player player) {
             Room playerRoom = plugin.getRoom(player);
             if(playerRoom != null && playerRoom.canIgnore()) {
+
                 PlayerListener.teleportToNextRoom(playerRoom, player);
             } else {
                 player.sendMessage(Component.text("There is no issue you can ignore.").color(NamedTextColor.RED));
