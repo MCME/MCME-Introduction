@@ -3,6 +3,6 @@ version: '${project.version}'
 main: com.mcmiddleearth.introduction.IntroductionPlugin
 api-version: 1.21
 authors: [ Eriol_Eandur ]
-depends: [ MCME-Architect, ViaVersion ]
+depends: [ MCME-Architect, ViaVersion, ProtocolLib ]
 description: Short new player intro with compatibility check.
 

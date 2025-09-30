@@ -4,6 +4,7 @@ import com.mcmiddleearth.introduction.rooms.FirstRoom;
 import com.mcmiddleearth.introduction.rooms.Room;
 import com.mcmiddleearth.introduction.rooms.SecondRoom;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,6 +43,11 @@ public final class IntroductionPlugin extends JavaPlugin {
         first = new FirstRoom(getConfig().getConfigurationSection("firstRoom"));
         second = new SecondRoom(getConfig().getConfigurationSection("secondRoom"));
         first.setNextRoom(second);
+    }
+
+    @Override
+    public void onDisable() {
+        Bukkit.getOnlinePlayers().forEach(PlayerListener::exitAllRooms);
     }
 
     public static IntroductionPlugin getInstance(){return instance;}

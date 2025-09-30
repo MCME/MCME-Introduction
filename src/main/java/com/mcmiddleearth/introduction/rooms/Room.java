@@ -95,8 +95,8 @@ public abstract class Room {
     }
 
     public void handleExit(Player player) {
-Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
-Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
+//Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
+//Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
         if(playerGamemodes.containsKey(player.getUniqueId())) {
             if(!fixedPlayers.contains(player.getUniqueId())) {
                 removeCameraOverlay(player);

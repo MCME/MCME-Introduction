@@ -1,20 +1,33 @@
 package com.mcmiddleearth.introduction.rooms;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.PacketContainer;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 public class SecondRoom extends Room {
 
+    private static final ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded, messageManualMods, messageRunInstaller;
+
+    private final Map<UUID, BukkitTask> tasks = new HashMap<>();
 
     public SecondRoom(ConfigurationSection config) {
         super(config);
@@ -54,27 +67,42 @@ public class SecondRoom extends Room {
 
     @Override
     public void sendChat(Player player) {
-        if (isForge(player)) {
-            if (!isSupportedVersion(player)) {
-                player.sendMessage(messageUnsupportedModded);
-            }
-            player.sendMessage(messageShaders);
-            player.sendMessage(messageOptifine);
-        } else if (isFabric(player)) {
-            if (isMcmeMarker(player)) {
-                player.sendMessage(messageRunInstaller);
-            } else {
+        //tasks.put(player.getUniqueId(),Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
+        //    sendMessage(player, Component.text(".\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.\n").color(NamedTextColor.BLACK));
+            Component message = Component.empty();
+            if (isForge(player)) {
                 if (!isSupportedVersion(player)) {
-                    player.sendMessage(messageUnsupportedModded);
+                    message = message.append(messageUnsupportedModded).append(Component.text("\n"));
                 }
-                player.sendMessage(messageShaders);
-                player.sendMessage(messageManualMods);
+                message = message.append(messageShaders).append(Component.text("\n"));
+                message = message.append(messageOptifine);
+            } else if (isFabric(player)) {
+                if (isMcmeMarker(player)) {
+                    message = message.append(messageRunInstaller);
+                } else {
+                    if (!isSupportedVersion(player)) {
+                        message = message.append(messageUnsupportedModded).append(Component.text("\n"));
+                    }
+                    message = message.append(messageShaders).append(Component.text("\n"));
+                    message = message.append(messageManualMods);
+                }
+            } else {
+                message = message.append(messageUnsupportedVanilla);
             }
-        } else {
-            player.sendMessage(messageUnsupportedVanilla);
-        }
+            sendMessage(player, message);
+        //}, 0, 20));
     }
 
+    @Override
+    public void handleExit(Player player) {
+        super.handleExit(player);
+        BukkitTask task = tasks.get(player.getUniqueId());
+//Logger.getGlobal().info("cancel: "+task);
+        if(task!= null) {
+            task.cancel();
+            tasks.remove(player.getUniqueId());
+        }
+    }
     public boolean isSupportedVersion(Player player) {
 //Logger.getGlobal().info(Bukkit.getServer().getMinecraftVersion());
         int protocolId = Via.getAPI().getPlayerVersion(player);
@@ -94,4 +122,20 @@ public class SecondRoom extends Room {
     public boolean isMcmeMarker(Player player) {
         return RpManager.isSodiumClient(player);
     }
+
+    private void sendMessage(Player player, Component message) {
+        player.sendMessage(message);
+        //player.sendActionBar(Component.text("1.21.4         ").append(Component.text(".").color(NamedTextColor.BLACK)));
+    }
+
+    public static void clearChat(Player player) {
+        try {
+            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.CLEAR_TITLES);
+            packet.getBooleans().write(0, true);
+            protocolManager.sendServerPacket(player, packet);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }

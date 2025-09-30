@@ -110,6 +110,8 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void quitServer(PlayerQuitEvent event) {
+        IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
+        IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
         exitAllRooms(event.getPlayer());
     }
 
@@ -123,7 +125,7 @@ public class PlayerListener implements Listener {
         room.teleport(player, previous, next);
     }
 
-    private void exitAllRooms(Player player) {
+    public static void exitAllRooms(Player player) {
         IntroductionPlugin.getInstance().getFirst().handleExit(player);
         IntroductionPlugin.getInstance().getSecond().handleExit(player);
     }
