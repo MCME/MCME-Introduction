@@ -1,5 +1,6 @@
 package com.mcmiddleearth.introduction;
 
+import com.mcmiddleearth.introduction.rooms.FirstRoom;
 import com.mcmiddleearth.introduction.rooms.Room;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -7,10 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.util.Vector;
 
 import java.util.logging.Logger;
@@ -113,6 +111,21 @@ public class PlayerListener implements Listener {
         IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
         exitAllRooms(event.getPlayer());
+    }
+
+    @EventHandler
+    public void rpLoaded(PlayerResourcePackStatusEvent event) {
+        Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
+        if(room instanceof FirstRoom first) {
+            switch (event.getStatus()) {
+                case PlayerResourcePackStatusEvent.Status.DECLINED:
+                case PlayerResourcePackStatusEvent.Status.DISCARDED:
+                case PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD:
+                case PlayerResourcePackStatusEvent.Status.FAILED_RELOAD:
+                case PlayerResourcePackStatusEvent.Status.INVALID_URL:
+                    first.sendRpWarning(event.getPlayer());
+            }
+        }
     }
 
     public static void teleportToNextRoom(Room room, Player player) {

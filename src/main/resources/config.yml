@@ -1,5 +1,6 @@
 joinDelay: 10
 reminderDuration: 150
+actionBarPeriod: 20
 firstRoom:
   world: hub
   pos1: -4094 -39 -4375

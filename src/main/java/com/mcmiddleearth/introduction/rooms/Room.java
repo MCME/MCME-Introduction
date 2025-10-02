@@ -5,12 +5,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
+import org.bukkit.advancement.Advancement;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.EquippableComponent;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.time.Duration;
 import java.util.*;
@@ -20,15 +22,18 @@ public abstract class Room {
 
     private Room next;
     private final Location pos1, pos2, tpTarget;
-    private final Component tpTransitionTitle;
+    private final Component tpTransitionTitle, messageActionBar;
     private final String[] tpTransitionTimes;
     private final boolean canIgnore;
+    private final long actionBarPeriod;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
     private final Set<UUID> fixedPlayers = new HashSet<>();
 
     private final Set<UUID> awaitingTeleport = new HashSet<>();
+
+    private final Map<UUID, BukkitTask> actionBarTasks = new HashMap<>();
 
     public Room(ConfigurationSection config) {
         World world = Bukkit.getWorld(Objects.requireNonNull(config.getString("world")));
@@ -52,7 +57,9 @@ public abstract class Room {
         ConfigurationSection targetConfig = config.getConfigurationSection("tpTarget");
         this.tpTarget = getLocation(Bukkit.getWorld(targetConfig.getString("world", world.getName())),
                                 "pos", targetConfig);
+        this.actionBarPeriod = config.getLong("actionBarPeriod");
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent"));
+        this.messageActionBar = getMessage(config.getString("messageActionBar"));
         this.tpTransitionTimes = Objects.requireNonNull(config.getString("tpTransitionTimes")).split(" ");
         this.canIgnore = config.getBoolean("canIgnore", false);
     }
@@ -83,11 +90,13 @@ public abstract class Room {
             playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
             setCameraOverlay(player);
             sendChat(player);
+            sendActionBar(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
         } else {
             if(!playerGamemodes.containsKey(player.getUniqueId())) {
                 sendChat(player);
+                sendActionBar(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
             }
@@ -104,6 +113,12 @@ public abstract class Room {
             }
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
             playerGamemodes.remove(player.getUniqueId());
+            BukkitTask task = actionBarTasks.get(player.getUniqueId());
+//Logger.getGlobal().info("cancel: "+task);
+            if(task!= null) {
+                task.cancel();
+                actionBarTasks.remove(player.getUniqueId());
+            }
         }
     }
 
@@ -174,6 +189,12 @@ public abstract class Room {
         //default: no message sent
     }
 
+    public void sendActionBar(Player player) {
+        Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
+            player.sendActionBar(messageActionBar);
+        },0, actionBarPeriod);
+    }
+
     public boolean canIgnore() {
         return canIgnore;
     }
@@ -186,9 +207,17 @@ public abstract class Room {
 
     private Location getLocation(World world, String key, ConfigurationSection config) {
         String[] location = Objects.requireNonNull(config.getString(key)).split(" ");
-        return new Location(world, Double.parseDouble(location[0]),
-                                   Double.parseDouble(location[1]),
-                                   Double.parseDouble(location[2]));
+        if(location.length == 3) {
+            return new Location(world, Double.parseDouble(location[0]),
+                    Double.parseDouble(location[1]),
+                    Double.parseDouble(location[2]));
+        } else {
+            return new Location(world, Double.parseDouble(location[0]),
+                    Double.parseDouble(location[1]),
+                    Double.parseDouble(location[2]),
+                    Float.parseFloat(location[3]),
+                    Float.parseFloat(location[4]));
+        }
     }
 
     protected Component getMessage(String code) {
@@ -202,5 +231,16 @@ public abstract class Room {
 
     public void showPlayers() {
         playerItems.forEach((uuid,item)->Logger.getGlobal().info(uuid+" - "+item));
+    }
+
+    public void sendAdvancement(Player player) {
+        Advancement advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString("mcme:intro"), "Test");
+        player.getAdvancementProgress(advancement).awardCriteria("done");
+        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+            player.getAdvancementProgress(advancement).revokeCriteria("done");
+            Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString("mcme:intro"));
+        }, 200);
+
+
     }
 }

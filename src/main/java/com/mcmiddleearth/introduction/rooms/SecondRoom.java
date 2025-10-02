@@ -27,8 +27,6 @@ public class SecondRoom extends Room {
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded, messageManualMods, messageRunInstaller;
 
-    private final Map<UUID, BukkitTask> tasks = new HashMap<>();
-
     public SecondRoom(ConfigurationSection config) {
         super(config);
         this.overlayWarningVersion = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningVersion")));
@@ -93,16 +91,6 @@ public class SecondRoom extends Room {
         //}, 0, 20));
     }
 
-    @Override
-    public void handleExit(Player player) {
-        super.handleExit(player);
-        BukkitTask task = tasks.get(player.getUniqueId());
-//Logger.getGlobal().info("cancel: "+task);
-        if(task!= null) {
-            task.cancel();
-            tasks.remove(player.getUniqueId());
-        }
-    }
     public boolean isSupportedVersion(Player player) {
 //Logger.getGlobal().info(Bukkit.getServer().getMinecraftVersion());
         int protocolId = Via.getAPI().getPlayerVersion(player);
