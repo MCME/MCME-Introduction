@@ -33,12 +33,12 @@ public class SecondRoom extends Room {
         this.overlayWarningModded = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningModded")));
         this.overlayWarningMcme = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningMcme")));
         this.overlayWarningMissingMod = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningMissingMod")));
-        messageUnsupportedVanilla = getMessage(config.getString("messageUnsupportedVanilla"));
-        messageShaders = getMessage(config.getString("messageShaders"));
-        messageOptifine = getMessage(config.getString("messageOptifine"));
-        messageUnsupportedModded = getMessage(config.getString("messageUnsupportedModded"));
-        messageManualMods = getMessage(config.getString("messageManualMods"));
-        messageRunInstaller = getMessage(config.getString("messageRunInstaller"));
+        messageUnsupportedVanilla = getMessage(config.getString("messageUnsupportedVanilla", "{\"text\":\"\"}"));
+        messageShaders = getMessage(config.getString("messageShaders", "{\"text\":\"\"}"));
+        messageOptifine = getMessage(config.getString("messageOptifine", "{\"text\":\"\"}"));
+        messageUnsupportedModded = getMessage(config.getString("messageUnsupportedModded", "{\"text\":\"\"}"));
+        messageManualMods = getMessage(config.getString("messageManualMods", "{\"text\":\"\"}"));
+        messageRunInstaller = getMessage(config.getString("messageRunInstaller", "{\"text\":\"\"}"));
     }
 
     @Override

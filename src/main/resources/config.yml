@@ -1,6 +1,5 @@
 joinDelay: 10
 reminderDuration: 150
-actionBarPeriod: 20
 firstRoom:
   world: hub
   pos1: -4094 -39 -4375
@@ -10,6 +9,12 @@ firstRoom:
   tpTransitionComponent: '{"text":"\uE01f", "font":"fade_black"}'
   tpTransitionTimes: 10 2 10
   cameraOverlay: "minecraft:welcome_screen"
+  actionBarPeriod: 40
+  actionBarDelay: 40
+  messageActionBar: '{"text":"Press "t" for help."}'
+  messageWelcome: '{"text":"Welcome to MCME!"}'
+  messageRpWarning: '{"text":"RP not loaded!"}'
+  advancement: '{"display":{"icon":"minecraft:stone","title":{"text":"test"},"description":{"text":"testest"}}, "criteria":{"manual":{"trigger":"minecraft:impossible"}}}'
 secondRoom:
   world: hub
   pos1: -4098 -39 -4377
@@ -23,6 +28,9 @@ secondRoom:
   overlayWarningModded: "minecraft:warning_modded"
   overlayWarningMcme: "minecraft:warning_mcme"
   overlayWarningMissingMod: "minecraft:warning_missing_mod"
+  actionBarPeriod: 40
+  actionBarDelay: 40
+  messageActionBar: '{"text":"Press "t" for help."}'
   messageUnsupportedVanilla: "MCME currently supports: <supported game versions>. How to change game version: https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/. Use /ignore to proceed to the server hub."
   messageShaders: "Shaders: MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download here: https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"
   messageOptifine: "Optifine Users: If you only need Optifine to run the game smoothly (no shader use) you can disable mipmapping in Options>Video Settings> Mipmapping Levels. Make sure to move the slider all the way to the left. Then type: <command to confirm optifine client> in chat."

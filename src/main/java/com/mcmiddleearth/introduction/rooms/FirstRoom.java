@@ -15,8 +15,8 @@ public class FirstRoom extends Room {
     public FirstRoom(ConfigurationSection config) {
         super(config);
         this.cameraOverlay = NamespacedKey.fromString(Objects.requireNonNull(config.getString("cameraOverlay")));
-        messageWelcome = getMessage(config.getString("messageWelcome"));
-        messageRpWarning = getMessage(config.getString("messageRpWarning"));
+        messageWelcome = getMessage(config.getString("messageWelcome", "{\"text\":\"\"}"));
+        messageRpWarning = getMessage(config.getString("messageRpWarning", "{\"text\":\"\"}"));
     }
 
     @Override
@@ -27,6 +27,7 @@ public class FirstRoom extends Room {
     @Override
     public void sendChat(Player player) {
         player.sendMessage(messageWelcome);
+        sendAdvancement(player);
     }
 
     public void sendRpWarning(Player player) {

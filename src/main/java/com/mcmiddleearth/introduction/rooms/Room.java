@@ -25,7 +25,8 @@ public abstract class Room {
     private final Component tpTransitionTitle, messageActionBar;
     private final String[] tpTransitionTimes;
     private final boolean canIgnore;
-    private final long actionBarPeriod;
+    private final long actionBarPeriod, actionBarDelay;
+    private final String advancementKey, advancementDisplay;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
@@ -57,9 +58,13 @@ public abstract class Room {
         ConfigurationSection targetConfig = config.getConfigurationSection("tpTarget");
         this.tpTarget = getLocation(Bukkit.getWorld(targetConfig.getString("world", world.getName())),
                                 "pos", targetConfig);
-        this.actionBarPeriod = config.getLong("actionBarPeriod");
-        this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent"));
-        this.messageActionBar = getMessage(config.getString("messageActionBar"));
+        this.actionBarPeriod = config.getLong("actionBarPeriod", 40);
+        this.actionBarDelay = config.getLong("actionBarDelay", 40);
+        this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
+        this.messageActionBar = getMessage(config.getString("messageActionBar", "{\"text\":\"\"}"));
+        this.advancementKey = config.getString("advancementKey", "mcme:intro");
+        this.advancementDisplay = config.getString("advancementDisplay",
+                "{\"icon\":{\"id\":\"minecraft:stone\"},\"title\":{\"text\":\"test\"},\"description\":{\"text\":\"testest\"}}");
         this.tpTransitionTimes = Objects.requireNonNull(config.getString("tpTransitionTimes")).split(" ");
         this.canIgnore = config.getBoolean("canIgnore", false);
     }
@@ -113,12 +118,7 @@ public abstract class Room {
             }
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
             playerGamemodes.remove(player.getUniqueId());
-            BukkitTask task = actionBarTasks.get(player.getUniqueId());
-//Logger.getGlobal().info("cancel: "+task);
-            if(task!= null) {
-                task.cancel();
-                actionBarTasks.remove(player.getUniqueId());
-            }
+            stopActionBar(player);
         }
     }
 
@@ -190,9 +190,21 @@ public abstract class Room {
     }
 
     public void sendActionBar(Player player) {
-        Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
+        stopActionBar(player);
+Logger.getGlobal().info("run task");
+        actionBarTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
             player.sendActionBar(messageActionBar);
-        },0, actionBarPeriod);
+        },actionBarDelay, actionBarPeriod));
+    }
+
+    public void stopActionBar(Player player) {
+        BukkitTask task = actionBarTasks.get(player.getUniqueId());
+//Logger.getGlobal().info("cancel: "+task);
+        if(task!= null) {
+            Logger.getGlobal().info("cancel task");
+            task.cancel();
+            actionBarTasks.remove(player.getUniqueId());
+        }
     }
 
     public boolean canIgnore() {
@@ -221,6 +233,9 @@ public abstract class Room {
     }
 
     protected Component getMessage(String code) {
+        if(code == null) {
+            code = "";
+        }
         try {
             return JSONComponentSerializer.json().deserialize(code);
         } catch (Exception ex) {
@@ -234,11 +249,12 @@ public abstract class Room {
     }
 
     public void sendAdvancement(Player player) {
-        Advancement advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString("mcme:intro"), "Test");
-        player.getAdvancementProgress(advancement).awardCriteria("done");
+        Advancement advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
+                "{\"display\":"+advancementDisplay+", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
+        player.getAdvancementProgress(advancement).awardCriteria("manual");
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
             player.getAdvancementProgress(advancement).revokeCriteria("done");
-            Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString("mcme:intro"));
+            Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey));
         }, 200);
 
 

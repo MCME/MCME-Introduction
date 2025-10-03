@@ -1,13 +1,11 @@
-package com.mcmiddleearth.introduction;
+package com.mcmiddleearth.introduction.command;
 
-import com.mcmiddleearth.introduction.rooms.Room;
+import com.mcmiddleearth.introduction.IntroductionPlugin;
 import com.mcmiddleearth.introduction.rooms.SecondRoom;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 public class ConfirmCommand {

@@ -6,3 +6,7 @@ authors: [ Eriol_Eandur ]
 depends: [ MCME-Architect, ViaVersion, ProtocolLib ]
 description: Short new player intro with compatibility check.
 
+permissions:
+  introduction.reload:
+    default: op
+    description: allows to reload plugin data.
