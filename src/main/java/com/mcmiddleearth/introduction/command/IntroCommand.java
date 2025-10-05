@@ -6,6 +6,8 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
+import org.bukkit.Bukkit;
+import org.bukkit.Server;
 import org.bukkit.entity.Player;
 
 public class IntroCommand {
@@ -17,8 +19,11 @@ public class IntroCommand {
                         .requires(sender -> sender.getSender().hasPermission("introduction.reload"))
                         .executes(ctx -> {
                             IntroductionPlugin.getInstance().unloadData();
-                            IntroductionPlugin.getInstance().reloadConfig();
-                            IntroductionPlugin.getInstance().loadData();
+                            Bukkit.getServer().reloadData();
+                            //Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+                                IntroductionPlugin.getInstance().reloadConfig();
+                                IntroductionPlugin.getInstance().loadData();
+                            //},20);
                             return Command.SINGLE_SUCCESS;
                         }))
                 .build();

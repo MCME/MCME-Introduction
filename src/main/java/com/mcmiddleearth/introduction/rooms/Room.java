@@ -26,7 +26,8 @@ public abstract class Room {
     private final String[] tpTransitionTimes;
     private final boolean canIgnore;
     private final long actionBarPeriod, actionBarDelay;
-    private final String advancementKey, advancementDisplay;
+    private final String advancementKey, advancementDisplay, getAdvancementTestDisplay;
+    private final Advancement advancement;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
@@ -63,10 +64,27 @@ public abstract class Room {
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
         this.messageActionBar = getMessage(config.getString("messageActionBar", "{\"text\":\"\"}"));
         this.advancementKey = config.getString("advancementKey", "mcme:intro");
-        this.advancementDisplay = config.getString("advancementDisplay",
-                "{\"icon\":{\"id\":\"minecraft:stone\"},\"title\":{\"text\":\"test\"},\"description\":{\"text\":\"testest\"}}");
+        this.getAdvancementTestDisplay = "{\"icon\":{\"id\":\"minecraft:stone\"},\"title\":{\"text\":\"test\"},\"description\":{\"text\":\"testest\"}}";
+        this.advancementDisplay = config.getString("advancementDisplay", getAdvancementTestDisplay);
         this.tpTransitionTimes = Objects.requireNonNull(config.getString("tpTransitionTimes")).split(" ");
         this.canIgnore = config.getBoolean("canIgnore", false);
+Logger.getGlobal().info("Load: "+this);
+        if(!advancementDisplay.equals(getAdvancementTestDisplay)) {
+Logger.getGlobal().info("Load: "+advancementKey);
+            advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
+                    "{\"display\":" + advancementDisplay + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
+        } else {
+            advancement = null;
+        }
+    }
+
+    public void unload() {
+Logger.getGlobal().info("Unload: "+this);
+        if(advancement != null) {
+Logger.getGlobal().info("Unload: "+advancementKey);
+            Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey));
+Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString(advancementKey)));
+        }
     }
 
     public void setNextRoom(Room room) {
@@ -96,12 +114,14 @@ public abstract class Room {
             setCameraOverlay(player);
             sendChat(player);
             sendActionBar(player);
+            sendAdvancement(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
         } else {
             if(!playerGamemodes.containsKey(player.getUniqueId())) {
                 sendChat(player);
                 sendActionBar(player);
+                sendAdvancement(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
             }
@@ -186,7 +206,6 @@ public abstract class Room {
     public abstract NamespacedKey selectCameraOverlay(Player player);
 
     public void sendChat(Player player) {
-        //default: no message sent
     }
 
     public void sendActionBar(Player player) {
@@ -249,14 +268,13 @@ Logger.getGlobal().info("run task");
     }
 
     public void sendAdvancement(Player player) {
-        Advancement advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
-                "{\"display\":"+advancementDisplay+", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
-        player.getAdvancementProgress(advancement).awardCriteria("manual");
-        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-            player.getAdvancementProgress(advancement).revokeCriteria("done");
-            Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey));
-        }, 200);
-
-
+Logger.getGlobal().info("Send Advancement");
+        if(advancement != null) {
+Logger.getGlobal().info("Send Advancement"+advancementDisplay);
+            player.getAdvancementProgress(advancement).awardCriteria("manual");
+            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+                player.getAdvancementProgress(advancement).revokeCriteria("manual");
+            }, 200);
+        }
     }
 }

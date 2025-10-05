@@ -54,6 +54,8 @@ public final class IntroductionPlugin extends JavaPlugin {
 
     public void unloadData() {
         Bukkit.getOnlinePlayers().forEach(PlayerListener::exitAllRooms);
+        first.unload();
+        second.unload();
     }
 
     public void loadData() {

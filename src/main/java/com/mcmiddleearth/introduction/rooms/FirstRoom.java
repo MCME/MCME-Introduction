@@ -27,7 +27,6 @@ public class FirstRoom extends Room {
     @Override
     public void sendChat(Player player) {
         player.sendMessage(messageWelcome);
-        sendAdvancement(player);
     }
 
     public void sendRpWarning(Player player) {
