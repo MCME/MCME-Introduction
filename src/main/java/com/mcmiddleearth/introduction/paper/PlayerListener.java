@@ -1,7 +1,7 @@
-package com.mcmiddleearth.introduction;
+package com.mcmiddleearth.introduction.paper;
 
-import com.mcmiddleearth.introduction.rooms.FirstRoom;
-import com.mcmiddleearth.introduction.rooms.Room;
+import com.mcmiddleearth.introduction.paper.rooms.FirstRoom;
+import com.mcmiddleearth.introduction.paper.rooms.Room;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -85,6 +85,7 @@ public class PlayerListener implements Listener {
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
 //Logger.getGlobal().info("In Room: " + room);
         if (room != null) {
+            room.silence(event.getPlayer());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 if (room.isSkipped(event.getPlayer())) {
                     teleportToNextRoom(room, event.getPlayer());

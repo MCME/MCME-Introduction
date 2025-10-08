@@ -1,10 +1,12 @@
-package com.mcmiddleearth.introduction;
+package com.mcmiddleearth.introduction.paper;
 
-import com.mcmiddleearth.introduction.command.ConfirmCommand;
-import com.mcmiddleearth.introduction.command.IntroCommand;
-import com.mcmiddleearth.introduction.rooms.FirstRoom;
-import com.mcmiddleearth.introduction.rooms.Room;
-import com.mcmiddleearth.introduction.rooms.SecondRoom;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.mcmiddleearth.introduction.paper.command.ConfirmCommand;
+import com.mcmiddleearth.introduction.paper.command.IntroCommand;
+import com.mcmiddleearth.introduction.paper.rooms.FirstRoom;
+import com.mcmiddleearth.introduction.paper.rooms.Room;
+import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -20,12 +22,19 @@ public final class IntroductionPlugin extends JavaPlugin {
 
     private Room first, second;
 
+    public static final String CHANNEL = "mcme:intro";
+
     @SuppressWarnings("UnstableApiUsage")
     @Override
     public void onEnable() {
         saveDefaultConfig();
         instance = this;
         getServer().getPluginManager().registerEvents(new PlayerListener(),this);
+        getServer().getMessenger()
+                .registerOutgoingPluginChannel(this, CHANNEL);
+        ProtocolManager manager = ProtocolLibrary.getProtocolManager();
+
+        manager.addPacketListener(new ChatPacketListener());
         /*IgnoreCommandHandler ignoreHandler = new IgnoreCommandHandler();
         PluginCommand ignoreCommand = getServer().getPluginCommand("confirm");
         if(ignoreCommand != null) {
@@ -56,6 +65,7 @@ public final class IntroductionPlugin extends JavaPlugin {
         Bukkit.getOnlinePlayers().forEach(PlayerListener::exitAllRooms);
         first.unload();
         second.unload();
+        ChatPacketListener.unSilenceAll();
     }
 
     public void loadData() {

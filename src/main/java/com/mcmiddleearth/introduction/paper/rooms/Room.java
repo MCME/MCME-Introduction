@@ -1,6 +1,9 @@
-package com.mcmiddleearth.introduction.rooms;
+package com.mcmiddleearth.introduction.paper.rooms;
 
-import com.mcmiddleearth.introduction.IntroductionPlugin;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
+import com.mcmiddleearth.introduction.paper.ChatPacketListener;
+import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -115,6 +118,7 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
             sendChat(player);
             sendActionBar(player);
             sendAdvancement(player);
+            silence(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
         } else {
@@ -122,6 +126,7 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
                 sendChat(player);
                 sendActionBar(player);
                 sendAdvancement(player);
+                silence(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
             }
@@ -139,6 +144,7 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
             playerGamemodes.remove(player.getUniqueId());
             stopActionBar(player);
+            unSilence(player);
         }
     }
 
@@ -256,7 +262,8 @@ Logger.getGlobal().info("run task");
             code = "";
         }
         try {
-            return JSONComponentSerializer.json().deserialize(code);
+            Component component = JSONComponentSerializer.json().deserialize(code);
+            return component.insertion(IntroductionPlugin.CHANNEL);
         } catch (Exception ex) {
             ex.printStackTrace();
             return Component.text(code);
@@ -276,5 +283,25 @@ Logger.getGlobal().info("Send Advancement"+advancementDisplay);
                 player.getAdvancementProgress(advancement).revokeCriteria("manual");
             }, 200);
         }
+    }
+
+    public void silence(Player player) {
+        ChatPacketListener.silence(player);
+        ByteArrayDataOutput out = ByteStreams.newDataOutput();
+        out.writeUTF("enter");
+        out.writeUTF(player.getUniqueId().toString());
+        player.sendPluginMessage(IntroductionPlugin.getInstance(),
+                IntroductionPlugin.CHANNEL,
+                out.toByteArray());
+    }
+
+    public void unSilence(Player player) {
+        ChatPacketListener.unSilence(player);
+        ByteArrayDataOutput out = ByteStreams.newDataOutput();
+        out.writeUTF("exit");
+        out.writeUTF(player.getUniqueId().toString());
+        player.sendPluginMessage(IntroductionPlugin.getInstance(),
+                IntroductionPlugin.CHANNEL,
+                out.toByteArray());
     }
 }

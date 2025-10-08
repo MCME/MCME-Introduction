@@ -1,14 +1,11 @@
-package com.mcmiddleearth.introduction.command;
+package com.mcmiddleearth.introduction.paper.command;
 
-import com.mcmiddleearth.introduction.IntroductionPlugin;
-import com.mcmiddleearth.introduction.rooms.SecondRoom;
+import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import org.bukkit.Bukkit;
-import org.bukkit.Server;
-import org.bukkit.entity.Player;
 
 public class IntroCommand {
 

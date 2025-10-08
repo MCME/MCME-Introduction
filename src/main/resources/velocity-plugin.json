@@ -1,0 +1,15 @@
+{
+  "id":"mcme-introduction",
+  "name":"MCME-Introduction",
+  "version":"1.0.0",
+  "url":"https://github.com/MCME/MCME-Introduction",
+  "description":"Plugin to introduce new players to MCME",
+  "authors":["Eriol_Eandur"],
+  "dependencies":[
+    {
+      "id": "vpacketevents",
+      "optional": false
+    }
+  ],
+  "main":"com.mcmiddleearth.introduction.velocity.IntroductionPlugin"
+}

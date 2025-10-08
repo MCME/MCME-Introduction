@@ -11,7 +11,7 @@ firstRoom:
   cameraOverlay: "minecraft:welcome_screen"
   actionBarPeriod: 40
   actionBarDelay: 40
-  messageActionBar: '{"text":"Press "t" for help."}'
+  messageActionBar: '{"text":"Press \"t\" for help."}'
   messageWelcome: '{"text":"Welcome to MCME!"}'
   messageRpWarning: '{"text":"RP not loaded!"}'
   advancement: '{"display":{"icon":"minecraft:stone","title":{"text":"test"},"description":{"text":"testest"}}, "criteria":{"manual":{"trigger":"minecraft:impossible"}}}'

@@ -1,7 +1,6 @@
-package com.mcmiddleearth.introduction;
+package com.mcmiddleearth.introduction.paper;
 
-import com.mcmiddleearth.introduction.rooms.Room;
-import io.papermc.paper.configuration.type.fallback.FallbackValue;
+import com.mcmiddleearth.introduction.paper.rooms.Room;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;

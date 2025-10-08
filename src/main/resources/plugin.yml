@@ -1,6 +1,6 @@
 name: '${project.artifactId}'
 version: '${project.version}'
-main: com.mcmiddleearth.introduction.IntroductionPlugin
+main: com.mcmiddleearth.introduction.paper.IntroductionPlugin
 api-version: 1.21
 authors: [ Eriol_Eandur ]
 depends: [ MCME-Architect, ViaVersion, ProtocolLib ]

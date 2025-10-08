@@ -1,4 +1,4 @@
-package com.mcmiddleearth.introduction.rooms;
+package com.mcmiddleearth.introduction.paper.rooms;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.NamespacedKey;

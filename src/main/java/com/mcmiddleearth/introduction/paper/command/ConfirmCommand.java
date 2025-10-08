@@ -1,7 +1,7 @@
-package com.mcmiddleearth.introduction.command;
+package com.mcmiddleearth.introduction.paper.command;
 
-import com.mcmiddleearth.introduction.IntroductionPlugin;
-import com.mcmiddleearth.introduction.rooms.SecondRoom;
+import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
