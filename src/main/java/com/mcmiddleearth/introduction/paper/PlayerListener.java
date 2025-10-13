@@ -94,16 +94,17 @@ public class PlayerListener implements Listener {
                 }
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
         } else {
-            Room second = IntroductionPlugin.getInstance().getSecond();
-            if(!second.isSkipped(event.getPlayer())) {
-                Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+                Room second = IntroductionPlugin.getInstance().getSecond();
+                if(!second.isSkipped(event.getPlayer())) {
                     second.handleOverride(event.getPlayer(), true);
                     Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                                 second.handleOverride(event.getPlayer(), false);
                     },
                     IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100));
-                }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
-            }
+                }
+                IntroductionChain.continueChain(event.getPlayer());
+            }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
         }
     }
 
@@ -112,6 +113,7 @@ public class PlayerListener implements Listener {
         IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
         exitAllRooms(event.getPlayer());
+        IntroductionChain.interruptChain(event.getPlayer());
     }
 
     @EventHandler

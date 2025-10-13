@@ -66,6 +66,7 @@ public final class IntroductionPlugin extends JavaPlugin {
         first.unload();
         second.unload();
         ChatPacketListener.unSilenceAll();
+        IntroductionChain.unload();
     }
 
     public void loadData() {

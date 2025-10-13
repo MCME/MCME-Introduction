@@ -3,6 +3,7 @@ package com.mcmiddleearth.introduction.paper.rooms;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.mcmiddleearth.introduction.paper.ChatPacketListener;
+import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
@@ -29,7 +30,7 @@ public abstract class Room {
     private final String[] tpTransitionTimes;
     private final boolean canIgnore;
     private final long actionBarPeriod, actionBarDelay;
-    private final String advancementKey, advancementDisplay, getAdvancementTestDisplay;
+    private final String advancementKey, advancementDisplay;
     private final Advancement advancement;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
@@ -67,12 +68,11 @@ public abstract class Room {
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
         this.messageActionBar = getMessage(config.getString("messageActionBar", "{\"text\":\"\"}"));
         this.advancementKey = config.getString("advancementKey", "mcme:intro");
-        this.getAdvancementTestDisplay = "{\"icon\":{\"id\":\"minecraft:stone\"},\"title\":{\"text\":\"test\"},\"description\":{\"text\":\"testest\"}}";
-        this.advancementDisplay = config.getString("advancementDisplay", getAdvancementTestDisplay);
+        this.advancementDisplay = config.getString("advancementDisplay", Room.TestDisplay.getAdvancementTestDisplay);
         this.tpTransitionTimes = Objects.requireNonNull(config.getString("tpTransitionTimes")).split(" ");
         this.canIgnore = config.getBoolean("canIgnore", false);
 Logger.getGlobal().info("Load: "+this);
-        if(!advancementDisplay.equals(getAdvancementTestDisplay)) {
+        if(!advancementDisplay.equals(Room.TestDisplay.getAdvancementTestDisplay)) {
 Logger.getGlobal().info("Load: "+advancementKey);
             advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
                     "{\"display\":" + advancementDisplay + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
@@ -186,6 +186,8 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
 //Logger.getGlobal().info("UNSET awaiting teleport");
             if(next != null) {
                 next.handleEnter(player);
+            } else {
+                IntroductionChain.startChain(player);
             }
                 },Long.parseLong(tpTransitionTimes[0]));
     }
@@ -303,5 +305,9 @@ Logger.getGlobal().info("Send Advancement"+advancementDisplay);
         player.sendPluginMessage(IntroductionPlugin.getInstance(),
                 IntroductionPlugin.CHANNEL,
                 out.toByteArray());
+    }
+
+    public static class TestDisplay {
+        public static final String getAdvancementTestDisplay = "{\"icon\":{\"id\":\"minecraft:stone\"},\"title\":{\"text\":\"test\"},\"description\":{\"text\":\"testest\"}}";
     }
 }
