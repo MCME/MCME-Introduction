@@ -9,6 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
@@ -22,8 +23,10 @@ public class IntroductionChain {
 
     private static final String advancementKey = "mcme:introChain";
 
+    private static final ConfigurationSection config;
+
     static {
-        ConfigurationSection config = IntroductionPlugin.getInstance().getConfig()
+        config = IntroductionPlugin.getInstance().getConfig()
                 .getConfigurationSection("introductionChain");
         List<String> chainDisplays = config.getStringList("advancementDisplays");
         for (int i = 0; i < chainDisplays.size(); i++) {
@@ -41,17 +44,21 @@ public class IntroductionChain {
     public static void continueChain(Player player) {
         if(playerStages.containsKey(player.getUniqueId())) {
             int stage = playerStages.get(player.getUniqueId());
-                playerTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
-                    if(stage < advancements.size()) {
-                        player.getAdvancementProgress(advancements.get(stage)).awardCriteria("manual");
-                        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                            player.getAdvancementProgress(advancements.get(stage)).revokeCriteria("manual");
-                        }, 200);
-                    } else {
-                        playerStages.remove(player.getUniqueId());
-                        cancel();
+                playerTasks.put(player.getUniqueId(), new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (stage < advancements.size()) {
+                            player.getAdvancementProgress(advancements.get(stage)).awardCriteria("manual");
+                            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+                                player.getAdvancementProgress(advancements.get(stage)).revokeCriteria("manual");
+                            }, 200);
+                        } else {
+                            playerStages.remove(player.getUniqueId());
+                            cancel();
+                        }
                     }
-                }, config.getLong("initialDelay", 10), config.getLong("frequency", 300)));
+                }.runTaskTimer(IntroductionPlugin.getInstance(),
+                        config.getLong("initialDelay", 10), config.getLong("frequency", 300)));
         }
     }
 
@@ -61,7 +68,8 @@ public class IntroductionChain {
     }
 
     public static void unload() {
-        advancements.forEach(advancement -> );
+        advancements.forEach(advancement ->
+                Bukkit.getUnsafe().removeAdvancement(advancement.getKey()));
         for(int i = 0; i < advancements.size(); i++) {
             Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey+i));
         }
