@@ -1,14 +1,10 @@
 package com.mcmiddleearth.introduction.paper;
 
-import com.comphenix.protocol.PacketType;
-import com.mcmiddleearth.introduction.paper.rooms.Room;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 

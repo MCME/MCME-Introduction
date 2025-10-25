@@ -2,7 +2,7 @@ package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import com.mcmiddleearth.introduction.paper.ChatPacketListener;
+import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import net.kyori.adventure.text.Component;

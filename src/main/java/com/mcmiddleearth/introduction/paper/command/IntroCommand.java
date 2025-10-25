@@ -16,11 +16,11 @@ public class IntroCommand {
                         .requires(sender -> sender.getSender().hasPermission("introduction.reload"))
                         .executes(ctx -> {
                             IntroductionPlugin.getInstance().unloadData();
-                            Bukkit.getServer().reloadData();
-                            //Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+                            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+                                Bukkit.getServer().reloadData();
                                 IntroductionPlugin.getInstance().reloadConfig();
                                 IntroductionPlugin.getInstance().loadData();
-                            //},20);
+                            },20);
                             return Command.SINGLE_SUCCESS;
                         }))
                 .build();

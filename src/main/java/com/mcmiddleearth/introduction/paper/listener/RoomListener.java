@@ -1,5 +1,7 @@
-package com.mcmiddleearth.introduction.paper;
+package com.mcmiddleearth.introduction.paper.listener;
 
+import com.mcmiddleearth.introduction.paper.IntroductionChain;
+import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.rooms.FirstRoom;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import org.bukkit.Bukkit;
@@ -17,7 +19,7 @@ import java.util.logging.Logger;
  *
  * @author Eriol_Eandur
  */
-public class PlayerListener implements Listener {
+public class RoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClick(PlayerInteractEvent event){

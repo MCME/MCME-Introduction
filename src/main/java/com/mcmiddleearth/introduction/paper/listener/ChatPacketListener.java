@@ -1,10 +1,11 @@
-package com.mcmiddleearth.introduction.paper;
+package com.mcmiddleearth.introduction.paper.listener;
 
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.WrappedChatComponent;
+import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import org.bukkit.entity.Player;
 
 import java.util.HashSet;

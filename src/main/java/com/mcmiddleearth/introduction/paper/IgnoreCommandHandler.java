@@ -1,5 +1,6 @@
 package com.mcmiddleearth.introduction.paper;
 
+import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -20,13 +21,13 @@ public class IgnoreCommandHandler implements TabExecutor {
             Room playerRoom = plugin.getRoom(player);
             if(playerRoom != null && playerRoom.canIgnore()) {
 
-                PlayerListener.teleportToNextRoom(playerRoom, player);
+                RoomListener.teleportToNextRoom(playerRoom, player);
             } else {
                 player.sendMessage(Component.text("There is no issue you can ignore.").color(NamedTextColor.RED));
             }
         } else {
             sender.sendMessage("Player only command!");
-            PlayerListener.showStatus();
+            RoomListener.showStatus();
             IntroductionPlugin.getInstance().reloadConfig();
         }
         return true;
