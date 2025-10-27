@@ -39,6 +39,8 @@ public class GlowListener implements Listener {
 
     private final BukkitTask task;
 
+    private final Set<Material> introductionItems = new HashSet<>();
+
     public GlowListener(ConfigurationSection config) {
         world = Bukkit.getWorld("world");
         box = new BoundingBox(-4100,-50,-4400,-4000,-30,-4300);
@@ -68,7 +70,16 @@ public class GlowListener implements Listener {
                 double zMax = pos2.getDouble("z");
                 box = new BoundingBox(xMin, yMin, zMin, xMax, yMax, zMax);
             }
-
+            List<String> itemNames = config.getStringList("items");
+            for(String name: itemNames) {
+                Material itemMaterial = null;
+                try {
+                    itemMaterial = Material.valueOf(name.toUpperCase());
+                } catch(IllegalArgumentException ignore) {}
+                if(itemMaterial != null) {
+                    introductionItems.add(itemMaterial);
+                }
+            }
         }
         task = new BukkitRunnable() {
             @Override
@@ -105,7 +116,7 @@ public class GlowListener implements Listener {
                     glowEntity = (ItemDisplay) world.spawnEntity(hitEntity.getLocation(), EntityType.ITEM_DISPLAY);
                     glowEntity.setItemStack(((ItemFrame)hitEntity).getItem());
                     glowEntity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
-                    glowEntity.setTransformation(new Transformation(new Vector3f(0,1f/32,0),
+                    glowEntity.setTransformation(new Transformation(new Vector3f(0,-1f/32,0),
                                                  new Quaternionf(),
                                                  new Vector3f(size,size,size),
                                                  new Quaternionf().rotationX((float)Math.toRadians(-90))));
@@ -175,7 +186,8 @@ public class GlowListener implements Listener {
 
     private boolean isIntroductionItem(Entity entity) {
         if(entity instanceof ItemFrame itemFrame) {
-            return itemFrame.getItem().getType().equals(Material.WHITE_DYE);
+//Logger.getGlobal().info("Check: "+itemFrame.getItem().getType());
+            return introductionItems.contains(itemFrame.getItem().getType());
         }
         return false;
     }
