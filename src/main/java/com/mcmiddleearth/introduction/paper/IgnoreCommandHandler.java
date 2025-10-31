@@ -15,7 +15,7 @@ import java.util.List;
 public class IgnoreCommandHandler implements TabExecutor {
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String @NotNull [] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String [] args) {
         IntroductionPlugin plugin = IntroductionPlugin.getInstance();
         if(sender instanceof Player player) {
             Room playerRoom = plugin.getRoom(player);

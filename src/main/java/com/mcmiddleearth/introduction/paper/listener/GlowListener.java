@@ -21,6 +21,7 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.io.*;
 import java.util.*;
 
 public class GlowListener implements Listener {
@@ -37,6 +38,9 @@ public class GlowListener implements Listener {
     private final Map<UUID, ItemDisplay> glowEntities = new HashMap<>();
     private final Map<Player, Map<ItemDisplay, Integer>> lookEvents = new HashMap<>();
 
+    private final Set<UUID> enabledGloItems = new HashSet<>();
+    private final File enabledGlowItemsFile = new File(IntroductionPlugin.getInstance().getDataFolder(),"EnabledGlowItems.dat");
+
     private final BukkitTask task;
 
     private final Set<Material> introductionItems = new HashSet<>();
@@ -44,6 +48,20 @@ public class GlowListener implements Listener {
     public GlowListener(ConfigurationSection config) {
         world = Bukkit.getWorld("world");
         box = new BoundingBox(-4100,-50,-4400,-4000,-30,-4300);
+        if(!enabledGlowItemsFile.exists()) {
+            try {
+                enabledGlowItemsFile.createNewFile();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        try(Scanner scanner = new Scanner(enabledGlowItemsFile)) {
+            while(scanner.hasNext()) {
+                enabledGloItems.add(UUID.fromString(scanner.nextLine()));
+            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         if(config != null) {
             Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
             String teamName = "mcme_intro";
@@ -109,7 +127,9 @@ public class GlowListener implements Listener {
     //public void onPlayerMove(PlayerMoveEvent event) {
     public void updateGlow(Player player) {
         //Player player = event.getPlayer();
-        if (player.getWorld().equals(world) && box.contains(player.getLocation().toVector())) {
+        if (player.getWorld().equals(world)
+                && enabledGloItems.contains(player.getUniqueId())
+                && box.contains(player.getLocation().toVector())) {
             rayTraceEntities(player).forEach(hitEntity -> {
                 ItemDisplay glowEntity = glowEntities.get(hitEntity.getUniqueId());
                 if(glowEntity == null) {
@@ -209,6 +229,27 @@ public class GlowListener implements Listener {
 //Logger.getGlobal().info("Task: "+task.getTaskId());
         task.cancel();
         Bukkit.getOnlinePlayers().forEach(this::hideAllGlowEntities);
+    }
+
+    public void setItemGlow(Player player, boolean glowing) {
+        if(!glowing) {
+            hideAllGlowEntities(player);
+            enabledGloItems.remove(player.getUniqueId());
+            saveEnabledGlowItems();
+        } else {
+            enabledGloItems.add(player.getUniqueId());
+            saveEnabledGlowItems();
+        }
+    }
+
+    private void saveEnabledGlowItems() {
+        try(PrintWriter writer = new PrintWriter(new FileOutputStream(enabledGlowItemsFile))) {
+            for(UUID uuid: enabledGloItems) {
+                writer.println(uuid.toString());
+            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private record LookEvent(ItemDisplay entity, int timestamp) { }

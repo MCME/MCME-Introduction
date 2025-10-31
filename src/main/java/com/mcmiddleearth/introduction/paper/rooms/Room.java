@@ -259,7 +259,7 @@ Logger.getGlobal().info("run task");
         }
     }
 
-    protected Component getMessage(String code) {
+    public static Component getMessage(String code) {
         if(code == null) {
             code = "";
         }

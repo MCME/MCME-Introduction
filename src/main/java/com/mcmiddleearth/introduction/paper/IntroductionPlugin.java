@@ -81,9 +81,11 @@ public final class IntroductionPlugin extends JavaPlugin {
             glowListener.disable();
         }
         HandlerList.unregisterAll(this);
+        IntroductionChain.unload();
     }
 
     public void loadData() {
+        IntroductionChain.load();
         first = new FirstRoom(getConfig().getConfigurationSection("firstRoom"));
         second = new SecondRoom(getConfig().getConfigurationSection("secondRoom"));
         first.setNextRoom(second);
@@ -109,5 +111,9 @@ public final class IntroductionPlugin extends JavaPlugin {
     }
     public Room getSecond() {
         return second;
+    }
+
+    public GlowListener getGlowListener() {
+        return glowListener;
     }
 }

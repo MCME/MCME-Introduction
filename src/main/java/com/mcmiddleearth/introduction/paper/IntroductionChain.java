@@ -1,5 +1,7 @@
 package com.mcmiddleearth.introduction.paper;
 
+import com.mcmiddleearth.introduction.paper.rooms.Room;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.advancement.Advancement;
@@ -13,26 +15,36 @@ import java.util.logging.Logger;
 
 public class IntroductionChain {
 
-    private static Map<UUID, Integer> playerStages = new HashMap<>();
-    private static Map<UUID, BukkitTask> playerTasks = new HashMap<>();
-    private static List<Advancement> advancements = new ArrayList<>();
+    private static final Map<UUID, Integer> playerStages = new HashMap<>();
+    private static final Map<UUID, BukkitTask> playerTasks = new HashMap<>();
+    private static final List<Advancement> advancements = new ArrayList<>();
 
-    private static final String advancementKey = "mcme:introChain";
+    private static final String advancementKey = "mcme:introchain";
 
-    private static final ConfigurationSection config;
+    private static ConfigurationSection config;
 
-    static {
+    private static Component startMessage;
+
+    public static void load() {
         config = IntroductionPlugin.getInstance().getConfig()
                 .getConfigurationSection("introductionChain");
-        List<String> chainDisplays = config.getStringList("advancementDisplays");
-        for (int i = 0; i < chainDisplays.size(); i++) {
-            Logger.getGlobal().info("Load: " + advancementKey);
-            advancements.add(Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey + i),
-                    "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}"));
+        if(config != null) {
+            startMessage = Room.getMessage(config.getString("startMessage"));
+            List<String> chainDisplays = config.getStringList("advancementDisplays");
+            for (int i = 0; i < chainDisplays.size(); i++) {
+Logger.getGlobal().info("Load: " + advancementKey);
+                NamespacedKey key = NamespacedKey.fromString(advancementKey + i);
+Logger.getGlobal().info("Key: "+key);
+                //NamespacedKey key2 = NamespacedKey.fromString(advancementKey + (char)(64+i));
+//Logger.getGlobal().info("Key2: "+key2);
+                advancements.add(Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey + i),
+                        "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}"));
+            }
         }
     }
 
     public static void startChain(Player player) {
+        player.sendMessage(startMessage);
         playerStages.put(player.getUniqueId(), 0);
         continueChain(player);
     }
@@ -47,6 +59,7 @@ public class IntroductionChain {
                             player.getAdvancementProgress(advancements.get(stage)).awardCriteria("manual");
                             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                                 player.getAdvancementProgress(advancements.get(stage)).revokeCriteria("manual");
+                                playerStages.put(player.getUniqueId(), stage+1);
                             }, 200);
                         } else {
                             playerStages.remove(player.getUniqueId());
@@ -54,7 +67,7 @@ public class IntroductionChain {
                         }
                     }
                 }.runTaskTimer(IntroductionPlugin.getInstance(),
-                        config.getLong("initialDelay", 10), config.getLong("frequency", 300)));
+                        config.getLong("initialDelay", 100), config.getLong("period", 300)));
         }
     }
 
