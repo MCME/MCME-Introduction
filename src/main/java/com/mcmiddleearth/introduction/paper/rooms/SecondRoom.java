@@ -5,6 +5,7 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketContainer;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
+import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.viaversion.viaversion.api.Via;
@@ -134,10 +135,17 @@ public class SecondRoom extends Room {
                     cancel();
                     return;
                 }
+                RpPlayerData data = RpManager.getPlayerData(player);
                 if(rpLoadTime == -1) {
-                    if (RpManager.getPlayerData(player).getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)) {
+                    if (data.getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)) {
                         rpLoadTime = Bukkit.getServer().getCurrentTick();
                     }
+                } else if(data.getCurrentRpStatus().equals(RpPlayerStatus.DECLINED)
+                        || data.getCurrentRpStatus().equals(RpPlayerStatus.FAILED_DOWNLOAD)
+                        || data.getCurrentRpStatus().equals(RpPlayerStatus.FAILED_RELOAD)
+                        || data.getCurrentRpStatus().equals(RpPlayerStatus.INVALID_URL)) {
+                    //todo: send warning
+                    cancel();
                 } else {
                     if(Bukkit.getServer().getCurrentTick() > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100)) {
                         handleOverride(player, false);
