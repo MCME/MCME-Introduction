@@ -1,15 +1,18 @@
 package com.mcmiddleearth.introduction.paper.listener;
 
+import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.rooms.FirstRoom;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
+import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.util.Vector;
 
@@ -82,7 +85,7 @@ public class RoomListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
-    public void joinServer(PlayerJoinEvent event) {
+    public void joinServer(PlayerConnectEvent event) {
         //if in room give matching camera overlay.
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
 //Logger.getGlobal().info("In Room: " + room);
@@ -100,10 +103,7 @@ public class RoomListener implements Listener {
                 Room second = IntroductionPlugin.getInstance().getSecond();
                 if(!second.isSkipped(event.getPlayer())) {
                     second.handleOverride(event.getPlayer(), true);
-                    Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                                second.handleOverride(event.getPlayer(), false);
-                    },
-                    IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100));
+                    ((SecondRoom)second).startStopReminderTask(event.getPlayer());
                 }
                 IntroductionChain.continueChain(event.getPlayer());
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
@@ -129,6 +129,21 @@ public class RoomListener implements Listener {
                 case PlayerResourcePackStatusEvent.Status.FAILED_RELOAD:
                 case PlayerResourcePackStatusEvent.Status.INVALID_URL:
                     first.sendRpWarning(event.getPlayer());
+                    break;
+                case PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED:
+                    //todo: handleEnter set overlay
+            }
+        }
+    }
+
+    @EventHandler
+    public void blockInventoryOpen(InventoryOpenEvent event) {
+//Logger.getGlobal().info("open inv");
+        if (event.getPlayer() instanceof Player player) {
+//Logger.getGlobal().info("is player");
+            if (IntroductionPlugin.getInstance().getRoom(player) != null) {
+                event.setCancelled(true);
+//Logger.getGlobal().info("cancelled");
             }
         }
     }

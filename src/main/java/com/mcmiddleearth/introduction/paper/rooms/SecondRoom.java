@@ -5,6 +5,8 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketContainer;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
+import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
+import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.kyori.adventure.text.Component;
@@ -12,6 +14,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Objects;
 
@@ -119,6 +123,29 @@ public class SecondRoom extends Room {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void startStopReminderTask(Player player) {
+        new BukkitRunnable() {
+            int rpLoadTime = -1;
+            @Override
+            public void run() {
+                if(!player.isOnline()) {
+                    cancel();
+                    return;
+                }
+                if(rpLoadTime == -1) {
+                    if (RpManager.getPlayerData(player).getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)) {
+                        rpLoadTime = Bukkit.getServer().getCurrentTick();
+                    }
+                } else {
+                    if(Bukkit.getServer().getCurrentTick() > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100)) {
+                        handleOverride(player, false);
+                        cancel();
+                    }
+                }
+            }
+        }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 20L);
     }
 
 }

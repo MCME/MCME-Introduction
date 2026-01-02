@@ -2,6 +2,9 @@ package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import com.mcmiddleearth.architect.serverResoucePack.RpManager;
+import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
+import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
@@ -12,10 +15,12 @@ import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.EquippableComponent;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.time.Duration;
@@ -40,6 +45,7 @@ public abstract class Room {
     private final Set<UUID> awaitingTeleport = new HashSet<>();
 
     private final Map<UUID, BukkitTask> actionBarTasks = new HashMap<>();
+    private final Map<UUID, BukkitTask> overlayTasks = new HashMap<>();
 
     public Room(ConfigurationSection config) {
         World world = Bukkit.getWorld(Objects.requireNonNull(config.getString("world")));
@@ -203,20 +209,54 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
         equip.setCameraOverlay(overlay);
         meta.setEquippable(equip);
         overlayItem.setItemMeta(meta);
-        player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
+        startOverlayTask(player,overlayItem);
     }
 
     public void removeCameraOverlay(Player player) {
         //player.getInventory().setItem(EquipmentSlot.HEAD, new ItemStack(Material.AIR));
         player.getInventory().setItem(EquipmentSlot.HEAD, playerItems.get(player.getUniqueId()));
+        stopOverlayTask(player);
     }
 
     public abstract NamespacedKey selectCameraOverlay(Player player);
 
+    private void startOverlayTask(Player player, ItemStack overlayItem) {
+        stopOverlayTask(player);
+        BukkitTask task = new BukkitRunnable() {
+            int attempts = 0;
+            @Override
+            public void run() {
+Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
+                RpPlayerData data = RpManager.getPlayerData(player);
+                if(data.getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)
+                    || data.getLastRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)
+                        && (   data.getCurrentRpStatus().equals(RpPlayerStatus.ACCEPTED)
+                            || data.getCurrentRpStatus().equals(RpPlayerStatus.DOWNLOADED)
+                            || data.getCurrentRpStatus().equals(RpPlayerStatus.SENT))) {
+                    player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
+                    cancel();
+                }
+                attempts++;
+                if(attempts > 1000) {
+                    stopOverlayTask(player);
+                }
+            }
+        }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 10L);
+        overlayTasks.put(player.getUniqueId(), task);
+    }
+
+    private void stopOverlayTask(Player player) {
+        BukkitTask task = overlayTasks.get(player.getUniqueId());
+        if(task!= null) {
+            task.cancel();
+            overlayTasks.remove(player.getUniqueId());
+        }
+    }
+
     public void sendChat(Player player) {
     }
 
-    public void sendActionBar(Player player) {
+    private void sendActionBar(Player player) {
         stopActionBar(player);
 Logger.getGlobal().info("run task");
         actionBarTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
@@ -224,7 +264,7 @@ Logger.getGlobal().info("run task");
         },actionBarDelay, actionBarPeriod));
     }
 
-    public void stopActionBar(Player player) {
+    private void stopActionBar(Player player) {
         BukkitTask task = actionBarTasks.get(player.getUniqueId());
 //Logger.getGlobal().info("cancel: "+task);
         if(task!= null) {
