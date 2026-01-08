@@ -228,21 +228,36 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
             public void run() {
 Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
                 RpPlayerData data = RpManager.getPlayerData(player);
-                if(data.getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)
-                    || data.getLastRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)
-                        && (   data.getCurrentRpStatus().equals(RpPlayerStatus.ACCEPTED)
-                            || data.getCurrentRpStatus().equals(RpPlayerStatus.DOWNLOADED)
-                            || data.getCurrentRpStatus().equals(RpPlayerStatus.SENT))) {
+                if(isRpLoaded(data)) {
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
                     cancel();
                 }
+                else if(isRpFail(data)) {
+                    stopOverlayTask(player);
+                    //todo: warning message
+                }
                 attempts++;
                 if(attempts > 1000) {
+                    //todo: warn player about fail
                     stopOverlayTask(player);
                 }
             }
         }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 10L);
         overlayTasks.put(player.getUniqueId(), task);
+    }
+    public boolean isRpLoaded(RpPlayerData data) {
+        return data.getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)
+                || data.getLastRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)
+                && (   data.getCurrentRpStatus().equals(RpPlayerStatus.ACCEPTED)
+                    || data.getCurrentRpStatus().equals(RpPlayerStatus.DOWNLOADED)
+                    || data.getCurrentRpStatus().equals(RpPlayerStatus.SENT));
+    }
+
+    public boolean isRpFail(RpPlayerData data) {
+        return data.getCurrentRpStatus().equals(RpPlayerStatus.DECLINED)
+                || data.getCurrentRpStatus().equals(RpPlayerStatus.FAILED_DOWNLOAD)
+                || data.getCurrentRpStatus().equals(RpPlayerStatus.FAILED_RELOAD)
+                || data.getCurrentRpStatus().equals(RpPlayerStatus.INVALID_URL);
     }
 
     private void stopOverlayTask(Player player) {

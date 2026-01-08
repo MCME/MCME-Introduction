@@ -129,22 +129,22 @@ public class SecondRoom extends Room {
     public void startStopReminderTask(Player player) {
         new BukkitRunnable() {
             int rpLoadTime = -1;
+            int attempts = 0;
             @Override
             public void run() {
                 if(!player.isOnline()) {
                     cancel();
                     return;
                 }
+                attempts++;
                 RpPlayerData data = RpManager.getPlayerData(player);
                 if(rpLoadTime == -1) {
-                    if (data.getCurrentRpStatus().equals(RpPlayerStatus.SUCCESSFULLY_LOADED)) {
+                    if (isRpLoaded(RpManager.getPlayerData(player))) {
                         rpLoadTime = Bukkit.getServer().getCurrentTick();
                     }
-                } else if(data.getCurrentRpStatus().equals(RpPlayerStatus.DECLINED)
-                        || data.getCurrentRpStatus().equals(RpPlayerStatus.FAILED_DOWNLOAD)
-                        || data.getCurrentRpStatus().equals(RpPlayerStatus.FAILED_RELOAD)
-                        || data.getCurrentRpStatus().equals(RpPlayerStatus.INVALID_URL)) {
-                    //todo: send warning
+                } else if(isRpFail(data)) {
+                    cancel();
+                } else if(attempts > 1000) {
                     cancel();
                 } else {
                     if(Bukkit.getServer().getCurrentTick() > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100)) {
