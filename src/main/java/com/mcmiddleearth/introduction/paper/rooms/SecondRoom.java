@@ -8,6 +8,7 @@ import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.kyori.adventure.text.Component;
@@ -43,9 +44,19 @@ public class SecondRoom extends Room {
 
     @Override
     public boolean isSkipped(Player player) {
-        return isSupportedVersion(player)
+        ConfirmDataManager dataManager = IntroductionPlugin.getInstance().getConfirmDataManager();
+        if(isSupportedVersion(player)
                     && ((!isForge(player) && !isFabric(player))
-                        || (isFabric(player) && isMcmeMarker(player)));
+                        || (isFabric(player) && isMcmeMarker(player)))) {
+            //vanilla or mcme sodium installer
+            return true;
+        } else if(isSupportedVersion(player) && isForge(player)) {
+            //forge supported version, possibly optifine
+            return dataManager.hasConfirmedOptifine(player.getUniqueId());
+        } else {
+            //unsupported version or fabric without mcme marker
+            return dataManager.hasConfirmedIgnore(player.getUniqueId());
+        }
     }
 
     @Override
@@ -104,7 +115,7 @@ public class SecondRoom extends Room {
     }
 
     public boolean isFabric(Player player) {
-        return player.getClientBrandName()!=null && player.getClientBrandName().contains("Forge");
+        return player.getClientBrandName()!=null && player.getClientBrandName().contains("Fabric");
     }
 
     public boolean isMcmeMarker(Player player) {

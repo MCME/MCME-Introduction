@@ -1,39 +1,95 @@
-joinDelay: 10
-reminderDuration: 150
+database:
+  enabled: false
+  host: localhost
+  port: 3306
+  database: xxx
+  user: xxx
+  password: xxx
+
+joinDelay: 11
+reminderDuration: 100
+
+# Resource-pack messages shared across all rooms. Rooms may override any of these keys locally;
+# otherwise the values here are used as defaults.
+rpMessages:
+  messageRpWarning: '{"extra":[{"color":"red","text":"Resourcepack"}," has failed to load. Make sure you enabled your ",{"color":"aqua","text":"Server Resourcepacks"}," in the Multiplayer Menu. Rejoin and press ",{"color":"green","text":"\"Yes\""}," if you get promted to download it. "],"text":"Your "}'
+  messageRpTimeout: '{"text":"Resource pack timed out. Please try /rp reset or rejoin the server."}'
+  messageRpDeclined: '{"text":"You declined the resource pack. Please accept it in the Multiplayer menu to continue."}'
+  messageRpFailedDownload: '{"text":"Resource pack download failed. Check your connection or try again later."}'
+  messageRpFailedReload: '{"text":"Resource pack reload failed. Please rejoin to retry."}'
+  messageRpInvalidUrl: '{"text":"The server sent an invalid resource pack URL. Contact a server administrator."}'
+
+itemGlow:
+  world: world
+  zoom: 0.1
+  rayRange: 5
+  rayWidth: 1.2
+  rayRepetitions: 5
+  glowColor: GOLD
+  pos1:
+    x: -4100
+    y: -50
+    z: -4400
+  pos2:
+    x: -4000
+    y: -30
+    z: -4300
 firstRoom:
-  world: hub
-  pos1: -4094 -39 -4375
-  pos2: -4096 -43 -4378
+  world: world
+  pos1: -4096 -39 -4378
+  pos2: -4094 -35 -4375
+  yaw: 90.0
+  pitch: 0.0
   tpTarget:
-    pos: -4099 -38 -4379
-  tpTransitionComponent: '{"text":"\uE01f", "font":"fade_black"}'
-  tpTransitionTimes: 10 2 10
-  cameraOverlay: "minecraft:welcome_screen"
-  actionBarPeriod: 40
-  actionBarDelay: 40
+    pos: -4099 -38 -4379 180 0
+  tpTransitionComponent: '{"text":"\uE01f","font":"fade_black"}'
+  tpTransitionTimes: '10 2 10'
+  actionBarPeriod: 80
+  actionBarDelay: 80
   messageActionBar: '{"text":"Press \"t\" for help."}'
-  messageWelcome: '{"text":"Welcome to MCME!"}'
-  messageRpWarning: '{"text":"RP not loaded!"}'
-  advancement: '{"display":{"icon":"minecraft:stone","title":{"text":"test"},"description":{"text":"testest"}}, "criteria":{"manual":{"trigger":"minecraft:impossible"}}}'
+  messageWelcome: '{"extra":[{"italic":true,"clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/help/terms/"},"text":"Termes & Rules Click Here"}," <--"],"text":""}'
+  advancementKey: 'mcme:intro_first'
+  advancementDisplay: '{"icon":{"id":"minecraft:stone"},"title":{"text":"Here it is, your text to show\n here just for you!"},"description":{"text":"Some Message!"},"hidden":true,"announce_to_chat":false}'
+  #  cameraOverlay: "minecraft:block/stone"
+  cameraOverlay: "minecraft:gui/overlay/welcome_screen"
 secondRoom:
-  world: hub
-  pos1: -4098 -39 -4377
-  pos2: -4101 -43 -4381
+  world: world
+  pos1: -4101 -39 -4381
+  pos2: -4098 -35 -4377
   tpTarget:
-    pos: -4099 -39 -4372
-  tpTransitionComponent: '{"text":"\uE01f", "font":"fade_black"'
+    pos: -4099 -39 -4372 270 0
+  tpTransitionComponent: '{"text":"\uE01f","font":"fade_black"}'
   tpTransitionTimes: 10 2 10
   canIgnore: true
-  overlayWarningVersion: "minecraft:warning_game_version"
-  overlayWarningModded: "minecraft:warning_modded"
-  overlayWarningMcme: "minecraft:warning_mcme"
-  overlayWarningMissingMod: "minecraft:warning_missing_mod"
-  actionBarPeriod: 40
-  actionBarDelay: 40
-  messageActionBar: '{"text":"Press "t" for help."}'
-  messageUnsupportedVanilla: "MCME currently supports: <supported game versions>. How to change game version: https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/. Use /ignore to proceed to the server hub."
-  messageShaders: "Shaders: MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download here: https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"
-  messageOptifine: "Optifine Users: If you only need Optifine to run the game smoothly (no shader use) you can disable mipmapping in Options>Video Settings> Mipmapping Levels. Make sure to move the slider all the way to the left. Then type: <command to confirm optifine client> in chat."
-  messageUnsupportedModded: "Game Version: Your game version is unsupported. MCME currently supports: <supported game versions>"
-  messageManualMods: "Manual Mod Loading/Custom Launchers: To manually add the required mods to your game check the modlist: https://www.mcmiddleearth.com/community/threads/recomended-mods-lists.7641/"
-  messageRunInstaller: "Run the installer again. Download here: https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"
+  overlayWarningVersion: "minecraft:gui/overlay/warning_game_version"
+  overlayWarningModded: "minecraft:gui/overlay/warning_modded"
+  overlayWarningMcme: "minecraft:gui/overlay/warning_mcme"
+  overlayWarningMissingMod: "minecraft:gui/overlay/warning_missing_mod"
+  actionBarPeriod: 80
+  actionBarDelay: 80
+  messageActionBar: '{"text":"Press \"t\" for help."}'
+  messageUnsupportedVanilla: '{"extra":[{"bold":true,"color":"#EDB02B","text":"MCME"}," currently supports: ",{"color":"#44D63C","extra":[{"color":"white","text":","}," 1.21.1"],"text":"1.21.4"},"\n\n",{"italic":true,"color":"#D1312E","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to open instructions."}]},"extra":[{"color":"#ED2A07","extra":[""],"text":"-->"},{"bold":true,"text":"Change game version tutorial"},"<--"],"text":""},"\n\nUse ",{"color":"#7F8285","clickEvent":{"action":"run_command","value":"/confirm ignore"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to run command."}]},"text":"/confirm ignore"}," to proceed to the server hub."],"text":""}'
+  messageShaders: '{"extra":[{"bold":true,"color":"#ED1186","extra":[""],"text":"Shaders"},": MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download ",{"bold":true,"color":"#39A8ED","clickEvent":{"action":"open_url","value":"https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDAF32","text":"Download the mcme installer"}]},"text":"here"},"."],"text":""}'
+  messageOptifine: '{"extra":[{"bold":true,"color":"#ED8421","text":"Optifine Users"},": If you only need Optifine to run the game smoothly (no shader use) you can disable mipmapping in ",{"italic":true,"color":"#00C49D","text":"Options"}," > ",{"italic":true,"color":"#00C49D","text":"Video Settings"}," > ",{"italic":true,"color":"#00C49D","text":"Mipmapping Levels"},". Make sure to move the slider all the way to the ",{"color":"#FF2E3C","text":"left"},". Then type: ",{"color":"#A3A3A3","text":"/confirm optifine"}," in chat to proceed to the hub."],"text":""}'
+  messageUnsupportedModded: '{"extra":[{"bold":true,"color":"#EDB02B","text":"MCME"}," currently supports: ",{"color":"#44D63C","text":"Fabric <supported game versions>"},"\n\n",{"italic":true,"color":"#D1312E","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to open instructions."}]},"extra":[{"color":"#ED2A07","extra":[""],"text":"-->"},{"bold":true,"text":"Change game version tutorial"},"<--"],"text":""},"\n\nUse ",{"color":"#7F8285","clickEvent":{"action":"run_command","value":"/confirm ignore"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to run command."}]},"text":"/confirm ignore"}," to proceed to the server hub."],"text":""}'
+  messageManualMods: '{"extra":[{"bold":true,"color":"#B4ED24","text":"Manual Mod Loading"},"/",{"bold":true,"color":"#1FC0ED","text":"Custom Launchers"},": To manually add the required mods to your game check the ",{"bold":true,"color":"#ED2B58","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/threads/recomended-mods-lists.7641/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDC31C","text":"Click to view mod list"}]},"text":"mod list"},". "],"text":""}'
+  messageRunInstaller: '{"extra":[{"bold":true,"color":"#EDB418","text":"Update MCME Installation"},": \nJust run the installer again. Download ",{"bold":true,"color":"#458BED","clickEvent":{"action":"open_url","value":"https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDB92B","text":"Click to download installer."}]},"text":"here"},"."],"text":""}'
+introductionChain:
+  broadcastMessage: §6[§4Broadcast§6] §a_@p_ §9just §9joined!                           §9§lWelcome §9§lto §9§lMiddle-earth!
+  startMessage: '{"extra":[{"bold":true,"color":"#FFC43B","text":"MCME"}," is a ",{"color":"#FF3639","text":"build server"}," that recreates the entirety of Middle-Earth in Minecraft. You can explore by walking around, flying (",{"color":"#FF3639","text":"/fly"},") or warping (",{"color":"#FF3639","text":"/warp"},") to your favorite places. \nThe community also gathers on ",{"bold":true,"color":"#69B4FF","clickEvent":{"action":"open_url","value":"https://www.discord.gg/mcmiddleearth"},"text":"Discord"}," and on the ",{"bold":true,"color":"#69B4FF","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community"},"text":"Forums"},". Make sure to use your ",{"color":"#FF3639","text":"in-game name"}," and only speak & write ",{"color":"#FF3639","text":"english"}," on all platforms.\n\n"],"text":"\n\n"}'
+  title:
+    title: '{"text":"Welcome"}'
+    subtitle: '{"text":"to ","extra":[{"bold":true,"color":"#ffc13b","text":"Minecraft Middle-earth"}]}'
+    fadeIn: 1
+    stay: 4
+    fadeOut: 1
+  initialDelay: 600
+  period: 600
+  advancementDisplays:
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"Jump in the well to get to Bag End"},"description":{"text":"First tip to MCME"},"hidden":true,"announce_to_chat":false}'
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"Use /fly to fly"},"description":{"text":"Second tip to MCME"},"hidden":true,"announce_to_chat":false}'
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"You can warp to places by using /warp Place Name"},"description":{"text":"Third tip to MCME"},"hidden":true,"announce_to_chat":false}'
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"You can use /l for local chat. /g to return to global"},"description":{"text":"Fourth tip to MCME"},"hidden":true,"announce_to_chat":false}'
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"Use /fly to fly"},"description":{"text":"Fifth tip to MCME"},"hidden":true,"announce_to_chat":false}'
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"Resourcepack issues? Try /rp reset"},"description":{"text":"Sixth tip to MCME"},"hidden":true,"announce_to_chat":false}'
+    - '{"icon":{"id":"minecraft:clay_ball","components":{"custom_model_data":{"floats":[1047]}}},"title":{"text":"Use /helper map to get the online map."},"description":{"text":"Seventh tip to MCME"},"hidden":true,"announce_to_chat":false}'

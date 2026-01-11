@@ -18,7 +18,7 @@ public class IgnoreCommandHandler implements TabExecutor {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String [] args) {
         IntroductionPlugin plugin = IntroductionPlugin.getInstance();
         if(sender instanceof Player player) {
-            Room playerRoom = plugin.getRoom(player);
+            Room playerRoom = plugin.getRoom(player.getLocation());
             if(playerRoom != null && playerRoom.canIgnore()) {
 
                 RoomListener.teleportToNextRoom(playerRoom, player);

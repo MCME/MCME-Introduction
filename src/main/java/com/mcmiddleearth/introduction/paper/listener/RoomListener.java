@@ -16,6 +16,9 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.util.Vector;
 
+import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 /**
@@ -24,10 +27,31 @@ import java.util.logging.Logger;
  */
 public class RoomListener implements Listener {
 
+    // Set of players that are allowed to teleport out of a room once (single-use)
+    //private static final Set<UUID> allowedTeleportOut = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Mark a player so that the next teleport event will be allowed (one-time).
+     */
+    /*public static void allowTeleportOut(Player player) {
+        if(player == null) return;
+        allowedTeleportOut.add(player.getUniqueId());
+    }*/
+
+    /**
+     * Check and consume the one-time allow flag for the given player.
+     * Returns true if the player was allowed (and consumes the flag), false otherwise.
+     */
+    /*public static boolean isAllowTeleportOut(Player player) {
+        if(player == null) return false;
+Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.getUniqueId()));
+        return allowedTeleportOut.remove(player.getUniqueId());
+    }*/
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClick(PlayerInteractEvent event){
         //if in room cancel
-        Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
+        Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer().getLocation());
 //Logger.getGlobal().info("In Room: "+room);
         if(room!=null) {
             event.setCancelled(true);
@@ -38,7 +62,7 @@ public class RoomListener implements Listener {
     //public void nextRoom(PlayerSwapHandItemsEvent event){
     private void nextRoom(Player player) {
         //if in room switch to next one
-        Room room = IntroductionPlugin.getInstance().getRoom(player);
+        Room room = IntroductionPlugin.getInstance().getRoom(player.getLocation());
 //Logger.getGlobal().info("In Room: "+room);
         if(room!=null) {
             if(room.canIgnore()) {
@@ -49,37 +73,63 @@ public class RoomListener implements Listener {
         }
     }
 
+    /*@EventHandler(priority = EventPriority.NORMAL)
+    public void playerTeleport(PlayerTeleportEvent event){
+        if(!isAllowTeleportOut(event.getPlayer())) handlePlayerMove(event);
+        Logger.getGlobal().info("Teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
+        if(event.isCancelled()) return;
+        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                () -> handlePlayerMove(event),1);
+    }*/
+
     @EventHandler(priority = EventPriority.NORMAL)
-    public void playerMove(PlayerMoveEvent event){
-        //if in room cancel movement
-        Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
+    public void playerMove(PlayerMoveEvent event) {
+        handlePlayerMove(event);
+    }
+
+    private void handlePlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        Room fromRoom = IntroductionPlugin.getInstance().getRoom(from);
+        Room toRoom = IntroductionPlugin.getInstance().getRoom(to);
+        //enter a room or move between rooms
+        if(fromRoom != toRoom && toRoom != null) {
+            player.teleport(toRoom.getPlayerLocation());
+        }
+        //Room room = IntroductionPlugin.getInstance().getRoom(player.getLocation());
 //Logger.getGlobal().info("In Room: "+room);
-        if(room!=null) {
-            event.setCancelled(true);
-             if(!room.isAwaitingTeleport(event.getPlayer())) {
-                //Logger.getGlobal().info("Is AWaiting teleport: "+room.isAwaitingTeleport(event.getPlayer()));
-                if (room.isSkipped(event.getPlayer())) {
-                    teleportToNextRoom(room, event.getPlayer());
+        //already in a room
+        else if(fromRoom != null) {
+            /*if(!isAllowTeleportOut(player))*/
+             event.setCancelled(true);
+             if(!fromRoom.isAwaitingTeleport(player)) {
+                //Logger.getGlobal().info("Is AWaiting teleport: "+room.isAwaitingTeleport(player));
+                if (fromRoom.isSkipped(player)) {
+                    teleportToNextRoom(fromRoom, player);
                     //Logger.getGlobal().info("TLEPOT TO NEXT ROOM");
                 } else {
-                    room.handleEnter(event.getPlayer());
-                    Location loc = event.getPlayer().getLocation().clone();
-                    loc.setPitch(0);
-                    Vector movement = event.getTo().toVector().subtract(event.getFrom().toVector()).normalize();
-                    Vector direction = loc.getDirection();
-                    Vector crossProduct = movement.clone();
-                    crossProduct.crossProduct(direction);
-                    //Logger.getGlobal().info(""+movement);
-                    //Logger.getGlobal().info(""+direction);
-                    //Logger.getGlobal().info(""+crossProduct);
-                    if (crossProduct.length() > 0.7 && crossProduct.getY() < 0) {
-                        nextRoom(event.getPlayer());
-                        //Logger.getGlobal().info("NEXT ROOM");
+                    if(!fromRoom.handleEnter(player)) {
+                        Location loc = player.getLocation().clone();
+                        loc.setPitch(0);
+                        Vector movement = event.getTo().toVector().subtract(event.getFrom().toVector()).normalize();
+                        Vector direction = event.getFrom().getDirection();
+                        Vector crossProduct = movement.clone();
+                        crossProduct.crossProduct(direction);
+/*if (!((Double) movement.getX()).isNaN()) {
+    Logger.getGlobal().info("mov " + movement);
+    Logger.getGlobal().info("dir " + direction + " pitch " + loc.getPitch() + " yaw " + loc.getYaw());
+    Logger.getGlobal().info("cro " + crossProduct);
+}*/
+                        if (crossProduct.length() > 0.7 && crossProduct.getY() < 0) {
+                            nextRoom(player);
+                            //Logger.getGlobal().info("NEXT ROOM");
+                        }
                     }
                 }
             }
         } else {
-            exitAllRooms(event.getPlayer());
+            exitAllRooms(player);
         }
 
     }
@@ -87,7 +137,7 @@ public class RoomListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void joinServer(PlayerConnectEvent event) {
         //if in room give matching camera overlay.
-        Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
+        Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer().getLocation());
 //Logger.getGlobal().info("In Room: " + room);
         if (room != null) {
             room.silence(event.getPlayer());
@@ -98,7 +148,7 @@ public class RoomListener implements Listener {
                     room.handleEnter(event.getPlayer());
                 }
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
-        } else {
+         } else {
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Room second = IntroductionPlugin.getInstance().getSecond();
                 if(!second.isSkipped(event.getPlayer())) {
@@ -118,7 +168,7 @@ public class RoomListener implements Listener {
         IntroductionChain.interruptChain(event.getPlayer());
     }
 
-    @EventHandler
+    /*@EventHandler
     public void rpLoaded(PlayerResourcePackStatusEvent event) {
         Room room = IntroductionPlugin.getInstance().getRoom(event.getPlayer());
         if(room instanceof FirstRoom first) {
@@ -134,14 +184,14 @@ public class RoomListener implements Listener {
                     //todo: handleEnter set overlay
             }
         }
-    }
+    }*/
 
     @EventHandler
     public void blockInventoryOpen(InventoryOpenEvent event) {
 //Logger.getGlobal().info("open inv");
         if (event.getPlayer() instanceof Player player) {
 //Logger.getGlobal().info("is player");
-            if (IntroductionPlugin.getInstance().getRoom(player) != null) {
+            if (IntroductionPlugin.getInstance().getRoom(player.getLocation()) != null) {
                 event.setCancelled(true);
 //Logger.getGlobal().info("cancelled");
             }

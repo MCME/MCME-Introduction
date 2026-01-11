@@ -5,6 +5,7 @@ import com.google.common.io.ByteStreams;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
+import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
@@ -30,7 +31,8 @@ import java.util.logging.Logger;
 public abstract class Room {
 
     private Room next;
-    private final Location pos1, pos2, tpTarget;
+    private final Location pos1, pos2, tpTarget, playerLocation;
+    private final float yaw, pitch;
     private final Component tpTransitionTitle, messageActionBar;
     private final String[] tpTransitionTimes;
     private final boolean canIgnore;
@@ -47,10 +49,20 @@ public abstract class Room {
     private final Map<UUID, BukkitTask> actionBarTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> overlayTasks = new HashMap<>();
 
+    // Resource pack related messages (loaded from config JSON)
+    private final Component rpFailureMessage;
+    private final Component rpTimeoutMessage;
+    private final Component rpDeclinedMessage;
+    private final Component rpFailedDownloadMessage;
+    private final Component rpFailedReloadMessage;
+    private final Component rpInvalidUrlMessage;
+
     public Room(ConfigurationSection config) {
-        World world = Bukkit.getWorld(Objects.requireNonNull(config.getString("world")));
+        String worldName = config.getString("world");
+        World world = (worldName != null ? Bukkit.getWorld(worldName) : null);
         this.pos1 = getLocation(world, "pos1", config);
         this.pos2 = getLocation(world, "pos2", config);
+        this.playerLocation = getLocation(world, "playerLocation", config);
         if(pos1.getX() > pos2.getX()) {
             double temp = pos2.getX();
             pos2.setX(pos1.getX());
@@ -66,6 +78,8 @@ public abstract class Room {
             pos2.setZ(pos1.getZ());
             pos1.setZ(temp);
         }
+        this.yaw = (float)config.getDouble("yaw", 0);
+        this.pitch = (float)config.getDouble("pitch", 0);
         ConfigurationSection targetConfig = config.getConfigurationSection("tpTarget");
         this.tpTarget = getLocation(Bukkit.getWorld(targetConfig.getString("world", world.getName())),
                                 "pos", targetConfig);
@@ -85,6 +99,23 @@ Logger.getGlobal().info("Load: "+advancementKey);
         } else {
             advancement = null;
         }
+
+        // Load resource-pack related messages from the room config or fall back to top-level rpMessages in config.yml
+        String rpFail = getConfigStringWithFallback(config, "messageRpWarning");
+        if(rpFail == null) rpFail = getConfigStringWithFallback(config, "messageRpFailed");
+        this.rpFailureMessage = getMessage(rpFail);
+        String rpTimeout = getConfigStringWithFallback(config, "messageRpTimeout");
+        this.rpTimeoutMessage = getMessage(rpTimeout);
+
+        // Specific failure reasons (optional, fallback to general failure message)
+        Component declined = getMessage(getConfigStringWithFallback(config, "messageRpDeclined"));
+        this.rpDeclinedMessage = (declined.equals(Component.text("")) ? rpFailureMessage : declined);
+        Component failedDownload = getMessage(getConfigStringWithFallback(config, "messageRpFailedDownload"));
+        this.rpFailedDownloadMessage = (failedDownload.equals(Component.text("")) ? rpFailureMessage : failedDownload);
+        Component failedReload = getMessage(getConfigStringWithFallback(config, "messageRpFailedReload"));
+        this.rpFailedReloadMessage = (failedReload.equals(Component.text("")) ? rpFailureMessage : failedReload);
+        Component invalidUrl = getMessage(getConfigStringWithFallback(config, "messageRpInvalidUrl"));
+        this.rpInvalidUrlMessage = (invalidUrl.equals(Component.text("")) ? rpFailureMessage : invalidUrl);
     }
 
     public void unload() {
@@ -109,15 +140,14 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
         return false;
     }
 
-    public boolean isInside(Player player) {
-        Location location = player.getLocation();
+    public boolean isInside(Location location) {
         return pos1!=null && pos1.getWorld()!=null && pos1.getWorld().equals(location.getWorld())
                 && pos1.getX()<location.getX() && pos2.getX()>location.getX()
                 && pos1.getY()<location.getY() && pos2.getY()>location.getY()
                 && pos1.getZ()<location.getZ() && pos2.getZ()>location.getZ();
     }
 
-    public void handleEnter(Player player) {
+    public boolean handleEnter(Player player) {
         if(!playerItems.containsKey(player.getUniqueId())) {
             playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
             setCameraOverlay(player);
@@ -127,6 +157,13 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
             silence(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
+            Location loc = player.getLocation();
+            /*loc.setPitch(pitch);
+            loc.setYaw(yaw);
+            RoomListener.allowTeleportOut(player);
+            player.teleport(loc);*/
+//Logger.getGlobal().info("Teleport! "+player.getName()+", "+yaw+", "+pitch);
+            return true;
         } else {
             if(!playerGamemodes.containsKey(player.getUniqueId())) {
                 sendChat(player);
@@ -135,8 +172,16 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
                 silence(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
+                /*Location loc = player.getLocation();
+                loc.setPitch(pitch);
+                loc.setYaw(yaw);
+                RoomListener.allowTeleportOut(player);
+                player.teleport(loc);*/
+//Logger.getGlobal().info("Teleport! "+player.getName()+", "+yaw+", "+pitch);
+                return true;
             }
         }
+        return false;
     }
 
     public void handleExit(Player player) {
@@ -164,7 +209,7 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
             }
         } else {
             fixedPlayers.remove(player.getUniqueId());
-            if(playerItems.containsKey(player.getUniqueId()) && !isInside(player)) {
+            if(playerItems.containsKey(player.getUniqueId()) && !isInside(player.getLocation())) {
                 removeCameraOverlay(player);
                 playerItems.remove(player.getUniqueId());
             }
@@ -187,6 +232,7 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
         player.showTitle(black);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
             previous.handleExit(player);
+            //RoomListener.allowTeleportOut(player);
             player.teleport(tpTarget);
             previous.awaitingTeleport.remove(player.getUniqueId());
 //Logger.getGlobal().info("UNSET awaiting teleport");
@@ -226,7 +272,7 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
             int attempts = 0;
             @Override
             public void run() {
-Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
+//Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
                 RpPlayerData data = RpManager.getPlayerData(player);
                 if(isRpLoaded(data)) {
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
@@ -234,11 +280,33 @@ Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player
                 }
                 else if(isRpFail(data)) {
                     stopOverlayTask(player);
-                    //todo: warning message
+                    // pick message based on exact failure reason
+                    RpPlayerStatus status = data.getCurrentRpStatus();
+                    Component msg;
+                    if(status.equals(RpPlayerStatus.DECLINED)) {
+                        msg = rpDeclinedMessage;
+                    } else if(status.equals(RpPlayerStatus.FAILED_DOWNLOAD)) {
+                        msg = rpFailedDownloadMessage;
+                    } else if(status.equals(RpPlayerStatus.FAILED_RELOAD)) {
+                        msg = rpFailedReloadMessage;
+                    } else if(status.equals(RpPlayerStatus.INVALID_URL)) {
+                        msg = rpInvalidUrlMessage;
+                    } else {
+                        msg = rpFailureMessage;
+                    }
+                    if(msg != null && !msg.equals(Component.text(""))) {
+                        IntroductionPlugin.sendErrorMessage(player, msg);
+                    } else {
+                        IntroductionPlugin.sendErrorMessage(player, "Could not send overlay as your resource pack failed to load.");
+                    }
                 }
                 attempts++;
-                if(attempts > 1000) {
-                    //todo: warn player about fail
+                if(attempts > 500) {
+                    if(rpTimeoutMessage != null && !rpTimeoutMessage.equals(Component.text(""))) {
+                        IntroductionPlugin.sendErrorMessage(player, rpTimeoutMessage);
+                    } else {
+                        IntroductionPlugin.sendErrorMessage(player, "Could not send overlay as your resource pack doesn't seem to load: Timed out.");
+                    }
                     stopOverlayTask(player);
                 }
             }
@@ -273,7 +341,7 @@ Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player
 
     private void sendActionBar(Player player) {
         stopActionBar(player);
-Logger.getGlobal().info("run task");
+//Logger.getGlobal().info("run task");
         actionBarTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
             player.sendActionBar(messageActionBar);
         },actionBarDelay, actionBarPeriod));
@@ -283,7 +351,7 @@ Logger.getGlobal().info("run task");
         BukkitTask task = actionBarTasks.get(player.getUniqueId());
 //Logger.getGlobal().info("cancel: "+task);
         if(task!= null) {
-            Logger.getGlobal().info("cancel task");
+//Logger.getGlobal().info("cancel task");
             task.cancel();
             actionBarTasks.remove(player.getUniqueId());
         }
@@ -291,6 +359,10 @@ Logger.getGlobal().info("run task");
 
     public boolean canIgnore() {
         return canIgnore;
+    }
+
+    public Location getPlayerLocation() {
+        return playerLocation;
     }
 
     public boolean isAwaitingTeleport(Player player) {
@@ -332,9 +404,9 @@ Logger.getGlobal().info("run task");
     }
 
     public void sendAdvancement(Player player) {
-Logger.getGlobal().info("Send Advancement");
+//Logger.getGlobal().info("Send Advancement");
         if(advancement != null) {
-Logger.getGlobal().info("Send Advancement"+advancementDisplay);
+//Logger.getGlobal().info("Send Advancement"+advancementDisplay);
             player.getAdvancementProgress(advancement).awardCriteria("manual");
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 player.getAdvancementProgress(advancement).revokeCriteria("manual");
@@ -360,6 +432,17 @@ Logger.getGlobal().info("Send Advancement"+advancementDisplay);
         player.sendPluginMessage(IntroductionPlugin.getInstance(),
                 IntroductionPlugin.CHANNEL,
                 out.toByteArray());
+    }
+
+    private static String getConfigStringWithFallback(ConfigurationSection roomConfig, String key) {
+        if(roomConfig == null) return null;
+        String val = roomConfig.getString(key, null);
+        if(val != null) return val;
+        IntroductionPlugin plugin = IntroductionPlugin.getInstance();
+        if(plugin == null) return null;
+        ConfigurationSection rp = plugin.getConfig().getConfigurationSection("rpMessages");
+        if(rp == null) return null;
+        return rp.getString(key, null);
     }
 
     public static class TestDisplay {

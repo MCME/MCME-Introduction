@@ -4,19 +4,24 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.mcmiddleearth.introduction.paper.command.ConfirmCommand;
 import com.mcmiddleearth.introduction.paper.command.IntroCommand;
+import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
+import com.mcmiddleearth.introduction.paper.listener.ConfirmPreLoginListener;
 import com.mcmiddleearth.introduction.paper.listener.GlowListener;
 import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import com.mcmiddleearth.introduction.paper.rooms.FirstRoom;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.logging.Logger;
+import java.util.List;
 
 /**
  *
@@ -29,6 +34,8 @@ public final class IntroductionPlugin extends JavaPlugin {
     private Room first, second;
 
     private GlowListener glowListener;
+
+    private ConfirmDataManager confirmDataManager;
 
     public static final String CHANNEL = "mcme:intro";
 
@@ -44,14 +51,6 @@ public final class IntroductionPlugin extends JavaPlugin {
 
         manager.addPacketListener(new ChatPacketListener());
 
-        /*IgnoreCommandHandler ignoreHandler = new IgnoreCommandHandler();
-        PluginCommand ignoreCommand = getServer().getPluginCommand("confirm");
-        if(ignoreCommand != null) {
-            ignoreCommand.setExecutor(ignoreHandler);
-            ignoreCommand.setTabCompleter(ignoreHandler);
-        } else {
-            Logger.getLogger(this.getClass().getSimpleName()).warning("Ignore command not found.");
-        }*/
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 commands -> {
                     commands.registrar().register(ConfirmCommand.createCommand("confirm"),
@@ -62,6 +61,13 @@ public final class IntroductionPlugin extends JavaPlugin {
                     commands.registrar().register(IntroCommand.createCommand("intro"),
                             "Introduction plugin management.");
                 });
+
+        // Initialize confirm data manager (may use DB if configured)
+        confirmDataManager = new ConfirmDataManager();
+
+        // Register pre-login listener which will load data on demand (AsyncPlayerPreLoginEvent)
+        Bukkit.getPluginManager().registerEvents(new ConfirmPreLoginListener(), this);
+
         loadData();
     }
 
@@ -97,10 +103,10 @@ public final class IntroductionPlugin extends JavaPlugin {
 
     public static IntroductionPlugin getInstance(){return instance;}
 
-    public Room getRoom(Player player) {
-        if(first.isInside(player)) {
+    public Room getRoom(Location location) {
+        if(first.isInside(location)) {
             return first;
-        } else if(second.isInside(player)) {
+        } else if(second.isInside(location)) {
             return second;
         }
         return null;
@@ -116,4 +122,29 @@ public final class IntroductionPlugin extends JavaPlugin {
     public GlowListener getGlowListener() {
         return glowListener;
     }
+
+    public ConfirmDataManager getConfirmDataManager() {
+        return confirmDataManager;
+    }
+
+    private static String prefix = "[MCME-Intro] ";
+
+    public static void sendInfoMessage(Player player, String message) {
+        player.sendMessage(Component.text(prefix+message).color(NamedTextColor.AQUA).insertion(IntroductionPlugin.CHANNEL));
+    }
+    public static void sendErrorMessage(Player player, String message) {
+        player.sendMessage(Component.text(prefix+message).color(NamedTextColor.RED).insertion(IntroductionPlugin.CHANNEL));
+    }
+
+    // Overloads to send formatted Components loaded from config (JSON)
+    public static void sendInfoMessage(Player player, Component message) {
+        Component pref = Component.text(prefix).color(NamedTextColor.AQUA).insertion(IntroductionPlugin.CHANNEL);
+        player.sendMessage(pref.append(message));
+    }
+
+    public static void sendErrorMessage(Player player, Component message) {
+        Component pref = Component.text(prefix).color(NamedTextColor.RED).insertion(IntroductionPlugin.CHANNEL);
+        player.sendMessage(pref.append(message));
+    }
+
 }

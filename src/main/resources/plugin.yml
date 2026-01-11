@@ -1,10 +1,10 @@
-name: '${project.artifactId}'
-version: '${project.version}'
+name: '${plugin.name}'
+version: '${plugin.version}'
 main: com.mcmiddleearth.introduction.paper.IntroductionPlugin
 api-version: 1.21
-authors: [ Eriol_Eandur ]
+authors: [ ${plugin.author} ]
 depends: [ MCME-Architect, ViaVersion, ProtocolLib ]
-description: Short new player intro with compatibility check.
+description: ${plugin.description}
 
 permissions:
   introduction.reload:

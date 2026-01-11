@@ -10,13 +10,13 @@ import java.util.Objects;
 public class FirstRoom extends Room {
 
     private final NamespacedKey cameraOverlay;
-    private Component messageWelcome, messageRpWarning;
+    private Component messageWelcome;//, messageRpWarning;
 
     public FirstRoom(ConfigurationSection config) {
         super(config);
         this.cameraOverlay = NamespacedKey.fromString(Objects.requireNonNull(config.getString("cameraOverlay")));
         messageWelcome = getMessage(config.getString("messageWelcome", "{\"text\":\"\"}"));
-        messageRpWarning = getMessage(config.getString("messageRpWarning", "{\"text\":\"\"}"));
+        //messageRpWarning = getMessage(config.getString("messageRpWarning", "{\"text\":\"\"}"));
     }
 
     @Override
@@ -29,7 +29,7 @@ public class FirstRoom extends Room {
         player.sendMessage(messageWelcome);
     }
 
-    public void sendRpWarning(Player player) {
+    /*public void sendRpWarning(Player player) {
         player.sendMessage(messageRpWarning);
-    }
+    }*/
 }

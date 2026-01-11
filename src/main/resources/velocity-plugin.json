@@ -1,10 +1,10 @@
 {
-  "id":"mcme-introduction",
-  "name":"MCME-Introduction",
-  "version":"1.0.0",
-  "url":"https://github.com/MCME/MCME-Introduction",
-  "description":"Plugin to introduce new players to MCME",
-  "authors":["Eriol_Eandur"],
+  "id":"${plugin.id}",
+  "name":"${plugin.name}",
+  "version":"${plugin.version}",
+  "url":"${plugin.url}",
+  "description":"${plugin.description}",
+  "authors":["${plugin.author}"],
   "dependencies":[
     {
       "id": "vpacketevents",
