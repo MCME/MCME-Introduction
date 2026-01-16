@@ -73,43 +73,61 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         }
     }
 
-    /*@EventHandler(priority = EventPriority.NORMAL)
+    @EventHandler(priority = EventPriority.NORMAL)
     public void playerTeleport(PlayerTeleportEvent event){
-        if(!isAllowTeleportOut(event.getPlayer())) handlePlayerMove(event);
-        Logger.getGlobal().info("Teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
-        if(event.isCancelled()) return;
-        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
-                () -> handlePlayerMove(event),1);
-    }*/
+//Logger.getGlobal().info("Player teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
+        handlePlayerMoveIntoRoom(event);
+        //if(!isAllowTeleportOut(event.getPlayer())) handlePlayerMove(event);
+        //Logger.getGlobal().info("Teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
+        //Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+        //        () -> handlePlayerMove(event),1);
+        //handlePlayerMove(event);
+    }
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void playerMove(PlayerMoveEvent event) {
-        handlePlayerMove(event);
+        //Logger.getGlobal().info("Playermove event for " + event.getPlayer().getName() + " cancelled: " + event.isCancelled());
+        if(!handlePlayerMoveIntoRoom(event)) {
+            handlePlayerMove(event);
+        }
     }
 
-    private void handlePlayerMove(PlayerMoveEvent event) {
+    private boolean handlePlayerMoveIntoRoom(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         Location from = event.getFrom();
         Location to = event.getTo();
         Room fromRoom = IntroductionPlugin.getInstance().getRoom(from);
         Room toRoom = IntroductionPlugin.getInstance().getRoom(to);
         //enter a room or move between rooms
-        if(fromRoom != toRoom && toRoom != null) {
-            player.teleport(toRoom.getPlayerLocation());
+        if (fromRoom != toRoom && toRoom != null) {
+            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                () -> {
+                    player.teleport(toRoom.getPlayerLocation());
+                    Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                        () -> {
+                            handlePlayerMove(event);
+                        }, 1);
+                },1);
+            return true;
         }
-        //Room room = IntroductionPlugin.getInstance().getRoom(player.getLocation());
+        return false;
+    }
+
+    private void handlePlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        Room room = IntroductionPlugin.getInstance().getRoom(player.getLocation());
 //Logger.getGlobal().info("In Room: "+room);
         //already in a room
-        else if(fromRoom != null) {
+        if(room != null) {
             /*if(!isAllowTeleportOut(player))*/
              event.setCancelled(true);
-             if(!fromRoom.isAwaitingTeleport(player)) {
+             if(!room.isAwaitingTeleport(player)) {
                 //Logger.getGlobal().info("Is AWaiting teleport: "+room.isAwaitingTeleport(player));
-                if (fromRoom.isSkipped(player)) {
-                    teleportToNextRoom(fromRoom, player);
+                if (room.isSkipped(player)) {
+                    teleportToNextRoom(room, player);
                     //Logger.getGlobal().info("TLEPOT TO NEXT ROOM");
                 } else {
-                    if(!fromRoom.handleEnter(player)) {
+                    if(!room.handleEnter(player)) {
                         Location loc = player.getLocation().clone();
                         loc.setPitch(0);
                         Vector movement = event.getTo().toVector().subtract(event.getFrom().toVector()).normalize();
