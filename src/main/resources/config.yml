@@ -9,6 +9,8 @@ database:
 joinDelay: 11
 reminderDuration: 100
 
+roomEnterMoveDelay: 5
+
 # Resource-pack messages shared across all rooms. Rooms may override any of these keys locally;
 # otherwise the values here are used as defaults.
 rpMessages:

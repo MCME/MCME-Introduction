@@ -5,10 +5,9 @@ import com.google.common.io.ByteStreams;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
-import com.mcmiddleearth.introduction.paper.listener.RoomListener;
-import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -16,7 +15,6 @@ import org.bukkit.*;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -43,6 +41,7 @@ public abstract class Room {
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
     private final Set<UUID> fixedPlayers = new HashSet<>();
+    private final Map<UUID, Integer> playerEnterTimes = new HashMap<>();
 
     private final Set<UUID> awaitingTeleport = new HashSet<>();
 
@@ -91,9 +90,9 @@ public abstract class Room {
         this.advancementDisplay = config.getString("advancementDisplay", Room.TestDisplay.getAdvancementTestDisplay);
         this.tpTransitionTimes = Objects.requireNonNull(config.getString("tpTransitionTimes")).split(" ");
         this.canIgnore = config.getBoolean("canIgnore", false);
-Logger.getGlobal().info("Load: "+this);
+//Logger.getGlobal().info("Load: "+this);
         if(!advancementDisplay.equals(Room.TestDisplay.getAdvancementTestDisplay)) {
-Logger.getGlobal().info("Load: "+advancementKey);
+//Logger.getGlobal().info("Load: "+advancementKey);
             advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
                     "{\"display\":" + advancementDisplay + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
         } else {
@@ -119,11 +118,11 @@ Logger.getGlobal().info("Load: "+advancementKey);
     }
 
     public void unload() {
-Logger.getGlobal().info("Unload: "+this);
+//Logger.getGlobal().info("Unload: "+this);
         if(advancement != null) {
-Logger.getGlobal().info("Unload: "+advancementKey);
+//Logger.getGlobal().info("Unload: "+advancementKey);
             Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey));
-Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString(advancementKey)));
+//Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString(advancementKey)));
         }
     }
 
@@ -371,7 +370,8 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
         return awaitingTeleport.contains(player.getUniqueId());
     }
 
-    private Location getLocation(World world, String key, ConfigurationSection config) {
+    // changed visibility so subclasses (FirstRoom) can parse locations from their own subsections
+    protected Location getLocation(World world, String key, ConfigurationSection config) {
         String[] location = Objects.requireNonNull(config.getString(key)).split(" ");
         if(location.length == 3) {
             return new Location(world, Double.parseDouble(location[0]),
@@ -447,5 +447,13 @@ Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString
 
     public static class TestDisplay {
         public static final String getAdvancementTestDisplay = "{\"icon\":{\"id\":\"minecraft:stone\"},\"title\":{\"text\":\"test\"},\"description\":{\"text\":\"testest\"}}";
+    }
+
+    public void setPlayerEnterTime(UUID player) {
+        playerEnterTimes.put(player, Bukkit.getCurrentTick());
+    }
+
+    public int getPlayerEnterTime(UUID player) {
+        return playerEnterTimes.getOrDefault(player, Integer.MAX_VALUE);
     }
 }

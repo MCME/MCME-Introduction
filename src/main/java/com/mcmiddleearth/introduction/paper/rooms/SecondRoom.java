@@ -6,7 +6,6 @@ import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketContainer;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
-import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
 import com.viaversion.viaversion.api.Via;
@@ -16,7 +15,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Objects;

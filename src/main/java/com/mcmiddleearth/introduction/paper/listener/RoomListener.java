@@ -3,7 +3,6 @@ package com.mcmiddleearth.introduction.paper.listener;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
-import com.mcmiddleearth.introduction.paper.rooms.FirstRoom;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import org.bukkit.Bukkit;
@@ -13,12 +12,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.util.Vector;
 
-import java.util.UUID;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 /**
@@ -100,6 +99,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         Room toRoom = IntroductionPlugin.getInstance().getRoom(to);
         //enter a room or move between rooms
         if (fromRoom != toRoom && toRoom != null) {
+            toRoom.setPlayerEnterTime(player.getUniqueId());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                 () -> {
                     player.teleport(toRoom.getPlayerLocation());
@@ -125,9 +125,12 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 //Logger.getGlobal().info("Is AWaiting teleport: "+room.isAwaitingTeleport(player));
                 if (room.isSkipped(player)) {
                     teleportToNextRoom(room, player);
-                    //Logger.getGlobal().info("TLEPOT TO NEXT ROOM");
+                    //Logger.getGlobal().info("TELEPORT TO NEXT ROOM");
                 } else {
-                    if(!room.handleEnter(player)) {
+                    if(!room.handleEnter(player)
+                            && room.getPlayerEnterTime(player.getUniqueId())
+                                 + IntroductionPlugin.getInstance().getConfig().getInt("roomEnterMoveDelay",10)
+                                < Bukkit.getCurrentTick()) {
                         Location loc = player.getLocation().clone();
                         loc.setPitch(0);
                         Vector movement = event.getTo().toVector().subtract(event.getFrom().toVector()).normalize();
