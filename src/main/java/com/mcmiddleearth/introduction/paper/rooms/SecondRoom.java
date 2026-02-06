@@ -16,8 +16,13 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.logging.Logger;
 
 public class SecondRoom extends Room {
 
@@ -25,6 +30,8 @@ public class SecondRoom extends Room {
 
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded, messageManualMods, messageRunInstaller;
+
+    private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
 
     public SecondRoom(ConfigurationSection config) {
         super(config);
@@ -47,12 +54,16 @@ public class SecondRoom extends Room {
                     && ((!isForge(player) && !isFabric(player))
                         || (isFabric(player) && isMcmeMarker(player)))) {
             //vanilla or mcme sodium installer
+Logger.getGlobal().info("vanilla or mcme sodium installer: forge: "+isForge(player)+" fabric: "+isFabric(player)+" marker: "+isMcmeMarker(player));
+Logger.getGlobal().info("Client Brand: "+player.getClientBrandName());
             return true;
         } else if(isSupportedVersion(player) && isForge(player)) {
             //forge supported version, possibly optifine
+Logger.getGlobal().info("forge suported: confirm");
             return dataManager.hasConfirmedOptifine(player.getUniqueId());
         } else {
             //unsupported version or fabric without mcme marker
+Logger.getGlobal().info("fabrick without marker");
             return dataManager.hasConfirmedIgnore(player.getUniqueId());
         }
     }
@@ -109,11 +120,11 @@ public class SecondRoom extends Room {
     }
 
     public boolean isForge(Player player) {
-        return player.getClientBrandName()!=null && player.getClientBrandName().contains("Forge");
+        return player.getClientBrandName()!=null && player.getClientBrandName().toLowerCase().contains("forge");
     }
 
     public boolean isFabric(Player player) {
-        return player.getClientBrandName()!=null && player.getClientBrandName().contains("Fabric");
+        return player.getClientBrandName()!=null && player.getClientBrandName().toLowerCase().contains("fabric");
     }
 
     public boolean isMcmeMarker(Player player) {
@@ -132,6 +143,36 @@ public class SecondRoom extends Room {
             protocolManager.sendServerPacket(player, packet);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public void startReminderTask(Player player) {
+        cancelReminderTask(player);
+        long reminderPeriod =  IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
+        handleOverride(player, true);
+        startStopReminderTask(player);
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (isSkipped(player) || !player.isOnline()) {
+                    cancel();
+                }
+                if (isRpLoaded(RpManager.getPlayerData(player))) {
+                    handleOverride(player, true);
+                    startStopReminderTask(player);
+                }
+            }
+        }.runTaskTimer(IntroductionPlugin.getInstance(), reminderPeriod, reminderPeriod);
+        reminderTasks.put(player.getUniqueId(), task);
+    }
+
+    public void cancelReminderTask(Player player) {
+        BukkitTask task = reminderTasks.get(player.getUniqueId());
+        if(task != null) {
+            if(!task.isCancelled()) {
+                task.cancel();
+            }
+            reminderTasks.remove(player.getUniqueId());
         }
     }
 

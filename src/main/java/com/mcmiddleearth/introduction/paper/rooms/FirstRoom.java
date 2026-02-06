@@ -41,7 +41,7 @@ public class FirstRoom extends Room {
             if(displayLocation != null && displayWorld != null) {
                 try {
                     displayEntity = (org.bukkit.entity.TextDisplay) displayWorld.spawn(displayLocation, org.bukkit.entity.TextDisplay.class);
-                    displayEntity.setText(JSONComponentSerializer.json().serialize(displayText));
+                    displayEntity.text(displayText);
                     // Try to set billboard to face players if API supports it
                     try {
                         java.lang.reflect.Method m = displayEntity.getClass().getMethod("setBillboard", org.bukkit.entity.Display.Billboard.class);

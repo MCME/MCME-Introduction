@@ -1,5 +1,6 @@
 package com.mcmiddleearth.introduction.paper.listener;
 
+import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
@@ -16,6 +17,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.logging.Logger;
@@ -172,11 +174,11 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
          } else {
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Room second = IntroductionPlugin.getInstance().getSecond();
-                if(!second.isSkipped(event.getPlayer())) {
-                    second.handleOverride(event.getPlayer(), true);
-                    ((SecondRoom)second).startStopReminderTask(event.getPlayer());
+                Player player = event.getPlayer();
+                if(!second.isSkipped(player)) {
+                    ((SecondRoom)second).startReminderTask(player);
                 }
-                IntroductionChain.continueChain(event.getPlayer());
+                IntroductionChain.continueChain(player);
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
         }
     }
@@ -187,6 +189,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
         exitAllRooms(event.getPlayer());
         IntroductionChain.interruptChain(event.getPlayer());
+        ((SecondRoom)IntroductionPlugin.getInstance().getSecond()).cancelReminderTask(event.getPlayer());
     }
 
     /*@EventHandler
@@ -222,10 +225,13 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     public static void teleportToNextRoom(Room room, Player player) {
         Room next = room.getNext();
         Room previous = room;
+//Logger.getGlobal().info("1 skipped: "+next+" "+next.isSkipped(player));
         while(next != null && next.isSkipped(player)) {
             room = next;
             next = next.getNext();
+//Logger.getGlobal().info("2 skipped: "+next+" "+next.isSkipped(player));
         }
+//Logger.getGlobal().info(room+" Teleporting "+player.getName()+" from "+previous+" to "+next);
         room.teleport(player, previous, next);
     }
 

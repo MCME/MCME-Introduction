@@ -150,7 +150,7 @@ public abstract class Room {
         if(!playerItems.containsKey(player.getUniqueId())) {
             playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
             setCameraOverlay(player);
-            sendChat(player);
+            //sendChat(player); -> moved inside setCameraOverlay
             sendActionBar(player);
             sendAdvancement(player);
             silence(player);
@@ -187,10 +187,10 @@ public abstract class Room {
 //Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
 //Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
         if(playerGamemodes.containsKey(player.getUniqueId())) {
-            if(!fixedPlayers.contains(player.getUniqueId())) {
+            //if(!fixedPlayers.contains(player.getUniqueId())) {
                 removeCameraOverlay(player);
                 playerItems.remove(player.getUniqueId());
-            }
+            //}
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
             playerGamemodes.remove(player.getUniqueId());
             stopActionBar(player);
@@ -204,7 +204,7 @@ public abstract class Room {
             if(!playerItems.containsKey(player.getUniqueId())) {
                 playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
                 setCameraOverlay(player);
-                sendChat(player);
+                //sendChat(player); -> moved inside setCameraOverlay
             }
         } else {
             fixedPlayers.remove(player.getUniqueId());
@@ -275,6 +275,7 @@ public abstract class Room {
                 RpPlayerData data = RpManager.getPlayerData(player);
                 if(isRpLoaded(data)) {
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
+                    sendChat(player);
                     cancel();
                 }
                 else if(isRpFail(data)) {

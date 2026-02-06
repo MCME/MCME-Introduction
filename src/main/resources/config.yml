@@ -8,6 +8,7 @@ database:
 
 joinDelay: 11
 reminderDuration: 100
+reminderPeriod: 600
 
 roomEnterMoveDelay: 5
 
@@ -54,6 +55,14 @@ firstRoom:
   advancementDisplay: '{"icon":{"id":"minecraft:stone"},"title":{"text":"Here it is, your text to show\n here just for you!"},"description":{"text":"Some Message!"},"hidden":true,"announce_to_chat":false}'
   #  cameraOverlay: "minecraft:block/stone"
   cameraOverlay: "minecraft:gui/overlay/welcome_screen"
+  # Example configuration for a TextDisplay entity that FirstRoom can spawn.
+  # FirstRoom looks for a `displayEntity` section with `pos` and `text` keys.
+  # The entity will be spawned in the room's configured `world` (do not set a world here).
+  displayEntity:
+    # Position format: 'x y z [yaw pitch]' — same format as other pos entries in this file.
+    pos: -4095 -38 -4377 180 0
+    # Text must be valid Adventure JSON (serialized). Newlines must be escaped.
+    text: '{"text":"Welcome to Middle-earth!","extra":[{"text":"\\nEnjoy your stay","color":"gold"}]}'
 secondRoom:
   world: world
   pos1: -4101 -39 -4381
