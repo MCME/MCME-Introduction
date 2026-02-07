@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.logging.Logger;
 
 public class SecondRoom extends Room {
 
@@ -34,12 +33,16 @@ public class SecondRoom extends Room {
 
     private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
 
-    public SecondRoom(ConfigurationSection config) {
-        super(config);
+    public SecondRoom(ConfigurationSection config, ConfigurationSection locationConfig) {
+        super(config, locationConfig);
         this.overlayWarningVersion = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningVersion")));
         this.overlayWarningModded = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningModded")));
         this.overlayWarningMcme = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningMcme")));
         this.overlayWarningMissingMod = NamespacedKey.fromString(Objects.requireNonNull(config.getString("overlayWarningMissingMod")));
+        overlays.add(overlayWarningVersion);
+        overlays.add(overlayWarningMcme);
+        overlays.add(overlayWarningMissingMod);
+        overlays.add(overlayWarningModded);
         messageUnsupportedVanilla = getMessage(config.getString("messageUnsupportedVanilla", "{\"text\":\"\"}"));
         messageShaders = getMessage(config.getString("messageShaders", "{\"text\":\"\"}"));
         messageOptifine = getMessage(config.getString("messageOptifine", "{\"text\":\"\"}"));
@@ -48,6 +51,14 @@ public class SecondRoom extends Room {
         messageRunInstaller = getMessage(config.getString("messageRunInstaller", "{\"text\":\"\"}"));
         messageConfirmIgnore = getMessage(config.getString("messageConfirmIgnore", "{\"text\":\"\"}"));
     }
+
+    /*@Override
+    public void handleExit(Player player) {
+        super.handleExit(player);
+        long reminederDelay = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
+        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                                           ()-> startReminderTask(player), reminederDelay);
+    }*/
 
     @Override
     public boolean isSkipped(Player player) {
@@ -155,6 +166,7 @@ public class SecondRoom extends Room {
     }
 
     public void startReminderTask(Player player) {
+//Logger.getGlobal().info("start reminder task for "+player.getName());
         cancelReminderTask(player);
         long reminderPeriod =  IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
         handleOverride(player, true);
@@ -162,11 +174,13 @@ public class SecondRoom extends Room {
         BukkitTask task = new BukkitRunnable() {
             @Override
             public void run() {
+//Logger.getGlobal().info("Reminder task running for "+player.getName());
                 if (isSkipped(player) || !player.isOnline()) {
+//Logger.getGlobal().info("cancel reminder task");
                     cancel();
                     return;
                 }
-                if (isRpLoaded(RpManager.getPlayerData(player))) {
+                if (isRpLoaded(RpManager.getPlayerData(player)) &&  !IntroductionPlugin.getInstance().isInsideRoom(player)) {
                     handleOverride(player, true);
                     startStopReminderTask(player);
                 }
@@ -191,7 +205,7 @@ public class SecondRoom extends Room {
             int attempts = 0;
             @Override
             public void run() {
-                if(!player.isOnline()) {
+                if(!player.isOnline() || IntroductionPlugin.getInstance().isInsideRoom(player)) {
                     cancel();
                     return;
                 }

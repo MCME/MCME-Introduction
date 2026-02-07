@@ -17,10 +17,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -92,11 +96,17 @@ public final class IntroductionPlugin extends JavaPlugin {
 
     public void loadData() {
         IntroductionChain.load();
-        first = new FirstRoom(getConfig().getConfigurationSection("firstRoom"));
-        second = new SecondRoom(getConfig().getConfigurationSection("secondRoom"));
+        YamlConfiguration locationConfig = new YamlConfiguration();
+        try {
+            locationConfig.load(new File(getDataFolder(), "locations.yml"));
+        } catch (IOException | InvalidConfigurationException ignore) {}
+        first = new FirstRoom(getConfig().getConfigurationSection("firstRoom"),
+                              locationConfig.getConfigurationSection("firstRoom"));
+        second = new SecondRoom(getConfig().getConfigurationSection("secondRoom"),
+                              locationConfig.getConfigurationSection("secondRoom"));
         first.setNextRoom(second);
         getServer().getPluginManager().registerEvents(new RoomListener(),this);
-        glowListener = new GlowListener(getConfig().getConfigurationSection("itemGlow"));
+        glowListener = new GlowListener(locationConfig.getConfigurationSection("itemGlow"));
 //Logger.getGlobal().info("Enable "+glowListener);
         Bukkit.getPluginManager().registerEvents(glowListener,this);
     }
@@ -147,4 +157,7 @@ public final class IntroductionPlugin extends JavaPlugin {
         player.sendMessage(pref.append(message));
     }
 
+    public boolean isInsideRoom(Player player) {
+        return first.isInside(player.getLocation()) || second.isInside(player.getLocation());
+    }
 }

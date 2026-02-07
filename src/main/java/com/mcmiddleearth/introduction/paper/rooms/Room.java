@@ -8,6 +8,7 @@ import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
+import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -22,6 +23,7 @@ import org.bukkit.inventory.meta.components.EquippableComponent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.*;
 import java.util.logging.Logger;
@@ -56,12 +58,14 @@ public abstract class Room {
     private final Component rpFailedReloadMessage;
     private final Component rpInvalidUrlMessage;
 
-    public Room(ConfigurationSection config) {
-        String worldName = config.getString("world");
+    protected static final Set<NamespacedKey> overlays = new HashSet<>();
+
+    public Room(ConfigurationSection config, @Nullable ConfigurationSection locationConfig) {
+        String worldName = (locationConfig!=null?locationConfig.getString("world"):null);
         World world = (worldName != null ? Bukkit.getWorld(worldName) : null);
-        this.pos1 = getLocation(world, "pos1", config);
-        this.pos2 = getLocation(world, "pos2", config);
-        this.playerLocation = getLocation(world, "playerLocation", config);
+        this.pos1 = getLocation(world, "pos1", locationConfig);
+        this.pos2 = getLocation(world, "pos2", locationConfig);
+        this.playerLocation = getLocation(world, "playerLocation", locationConfig);
         if(pos1.getX() > pos2.getX()) {
             double temp = pos2.getX();
             pos2.setX(pos1.getX());
@@ -77,11 +81,15 @@ public abstract class Room {
             pos2.setZ(pos1.getZ());
             pos1.setZ(temp);
         }
-        this.yaw = (float)config.getDouble("yaw", 0);
-        this.pitch = (float)config.getDouble("pitch", 0);
-        ConfigurationSection targetConfig = config.getConfigurationSection("tpTarget");
-        this.tpTarget = getLocation(Bukkit.getWorld(targetConfig.getString("world", world.getName())),
-                                "pos", targetConfig);
+        this.yaw = (float)(locationConfig!=null?locationConfig.getDouble("yaw", 0):0);
+        this.pitch = (float)(locationConfig!=null?locationConfig.getDouble("pitch", 0):0);
+        ConfigurationSection targetConfig = (locationConfig!=null?locationConfig.getConfigurationSection("tpTarget"):null);
+        if(targetConfig != null) {
+            this.tpTarget = getLocation(Bukkit.getWorld(targetConfig.getString("world", (world!=null?world.getName():"world"))),
+                    "pos", targetConfig);
+        } else {
+            this.tpTarget = getLocation(world, "tpTarget", locationConfig);
+        }
         this.actionBarPeriod = config.getLong("actionBarPeriod", 40);
         this.actionBarDelay = config.getLong("actionBarDelay", 40);
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
@@ -147,7 +155,13 @@ public abstract class Room {
     }
 
     public boolean handleEnter(Player player) {
+        IntroductionPlugin.getInstance().getFirst().handleOverride(player, false);
+        IntroductionPlugin.getInstance().getSecond().handleOverride(player, false);
         if(!playerItems.containsKey(player.getUniqueId())) {
+            ItemStack headItem = player.getInventory().getItem(EquipmentSlot.HEAD);
+            if(isOverlayItem(headItem)) {
+                headItem = new ItemStack(Material.AIR);
+            }
             playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
             setCameraOverlay(player);
             //sendChat(player); -> moved inside setCameraOverlay
@@ -187,6 +201,7 @@ public abstract class Room {
 //Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
 //Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
         if(playerGamemodes.containsKey(player.getUniqueId())) {
+//Logger.getGlobal().info("EXIT");
             //if(!fixedPlayers.contains(player.getUniqueId())) {
                 removeCameraOverlay(player);
                 playerItems.remove(player.getUniqueId());
@@ -199,9 +214,11 @@ public abstract class Room {
     }
 
     public void handleOverride(Player player, boolean override) {
+//Logger.getGlobal().info("Override: "+override);
         if(override) {
             fixedPlayers.add(player.getUniqueId());
             if(!playerItems.containsKey(player.getUniqueId())) {
+//Logger.getGlobal().info("Not in Room, setting overlay");
                 playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
                 setCameraOverlay(player);
                 //sendChat(player); -> moved inside setCameraOverlay
@@ -209,6 +226,7 @@ public abstract class Room {
         } else {
             fixedPlayers.remove(player.getUniqueId());
             if(playerItems.containsKey(player.getUniqueId()) && !isInside(player.getLocation())) {
+//Logger.getGlobal().info("stored player head item, removing overlay");
                 removeCameraOverlay(player);
                 playerItems.remove(player.getUniqueId());
             }
@@ -373,7 +391,8 @@ public abstract class Room {
 
     // changed visibility so subclasses (FirstRoom) can parse locations from their own subsections
     protected Location getLocation(World world, String key, ConfigurationSection config) {
-        String[] location = Objects.requireNonNull(config.getString(key)).split(" ");
+        String locData = (config!=null?config.getString(key, "0 0 0 0 0"):"0 0 0 0 0");
+        String[] location = locData.split(" ");
         if(location.length == 3) {
             return new Location(world, Double.parseDouble(location[0]),
                     Double.parseDouble(location[1]),
@@ -456,5 +475,16 @@ public abstract class Room {
 
     public int getPlayerEnterTime(UUID player) {
         return playerEnterTimes.getOrDefault(player, Integer.MAX_VALUE);
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    private boolean isOverlayItem(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if(meta != null) {
+            EquippableComponent equip = meta.getEquippable();
+            NamespacedKey key = equip.getCameraOverlay();
+            return overlays.contains(key);
+        }
+        return false;
     }
 }
