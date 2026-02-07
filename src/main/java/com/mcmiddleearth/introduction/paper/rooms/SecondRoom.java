@@ -120,7 +120,11 @@ Logger.getGlobal().info("fabrick without marker");
     }
 
     public boolean isForge(Player player) {
-        return player.getClientBrandName()!=null && player.getClientBrandName().toLowerCase().contains("forge");
+        return player.getClientBrandName()!=null
+                && (player.getClientBrandName().toLowerCase().contains("forge")
+                    || player.getClientBrandName().toLowerCase().contains("neoforge")
+                    || player.getClientBrandName().toLowerCase().contains("liteloader")
+                    || player.getClientBrandName().toLowerCase().contains("optifine"));
     }
 
     public boolean isFabric(Player player) {
@@ -156,6 +160,7 @@ Logger.getGlobal().info("fabrick without marker");
             public void run() {
                 if (isSkipped(player) || !player.isOnline()) {
                     cancel();
+                    return;
                 }
                 if (isRpLoaded(RpManager.getPlayerData(player))) {
                     handleOverride(player, true);
