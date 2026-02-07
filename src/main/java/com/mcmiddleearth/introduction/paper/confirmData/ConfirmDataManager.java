@@ -113,14 +113,14 @@ public class ConfirmDataManager {
     }
 
     public void loadPlayerData(String uuid) {
-Logger.getGlobal().info("Confirm: load player data");
+//Logger.getGlobal().info("Confirm: load player data");
         if (databaseConnector == null || !databaseConnector.isInitialized()) return;
         Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(), () ->
         {
             DatabaseConnector.ConfirmRow row = databaseConnector.readRow(uuid);
             if (row != null) {
                 applyRow(row);
-Logger.getGlobal().info("Confirm: done");
+//Logger.getGlobal().info("Confirm: done");
             }
         });
     }

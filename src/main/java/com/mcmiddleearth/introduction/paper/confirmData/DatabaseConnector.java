@@ -3,13 +3,7 @@ package com.mcmiddleearth.introduction.paper.confirmData;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import org.bukkit.Bukkit;
 
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -113,7 +107,7 @@ public class DatabaseConnector {
                 if (rs.next()) {
                     boolean optifine = rs.getInt("optifine") != 0;
                     boolean ignore = rs.getInt("ignore_confirmed") != 0;
-Logger.getGlobal().info("Confirm: read row "+optifine+", "+ignore);
+//Logger.getGlobal().info("Confirm: read row "+optifine+", "+ignore);
                     return new ConfirmRow(playerUUID, optifine, ignore);
                 }
             }
@@ -136,7 +130,7 @@ Logger.getGlobal().info("Confirm: read row "+optifine+", "+ignore);
             ps.setInt(2, optifine ? 1 : 0);
             ps.setInt(3, ignore ? 1 : 0);
             ps.executeUpdate();
-Logger.getGlobal().info("Confirm: upsert row: "+optifine+", "+ignore);
+//Logger.getGlobal().info("Confirm: upsert row: "+optifine+", "+ignore);
         } catch (SQLException e) {
             IntroductionPlugin.getInstance().getLogger().log(Level.WARNING, "Failed to upsert confirm_data row: " + e.getMessage(), e);
         }
