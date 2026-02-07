@@ -29,7 +29,8 @@ public class SecondRoom extends Room {
     private static final ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
 
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
-    private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded, messageManualMods, messageRunInstaller;
+    private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded,
+                            messageManualMods, messageRunInstaller, messageConfirmIgnore;
 
     private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
 
@@ -45,6 +46,7 @@ public class SecondRoom extends Room {
         messageUnsupportedModded = getMessage(config.getString("messageUnsupportedModded", "{\"text\":\"\"}"));
         messageManualMods = getMessage(config.getString("messageManualMods", "{\"text\":\"\"}"));
         messageRunInstaller = getMessage(config.getString("messageRunInstaller", "{\"text\":\"\"}"));
+        messageConfirmIgnore = getMessage(config.getString("messageConfirmIgnore", "{\"text\":\"\"}"));
     }
 
     @Override
@@ -54,16 +56,16 @@ public class SecondRoom extends Room {
                     && ((!isForge(player) && !isFabric(player))
                         || (isFabric(player) && isMcmeMarker(player)))) {
             //vanilla or mcme sodium installer
-Logger.getGlobal().info("vanilla or mcme sodium installer: forge: "+isForge(player)+" fabric: "+isFabric(player)+" marker: "+isMcmeMarker(player));
-Logger.getGlobal().info("Client Brand: "+player.getClientBrandName());
+//Logger.getGlobal().info("vanilla or mcme sodium installer: forge: "+isForge(player)+" fabric: "+isFabric(player)+" marker: "+isMcmeMarker(player));
+//Logger.getGlobal().info("Client Brand: "+player.getClientBrandName());
             return true;
         } else if(isSupportedVersion(player) && isForge(player)) {
             //forge supported version, possibly optifine
-Logger.getGlobal().info("forge suported: confirm");
+//Logger.getGlobal().info("forge suported: confirm");
             return dataManager.hasConfirmedOptifine(player.getUniqueId());
         } else {
             //unsupported version or fabric without mcme marker
-Logger.getGlobal().info("fabrick without marker");
+//Logger.getGlobal().info("fabrick without marker");
             return dataManager.hasConfirmedIgnore(player.getUniqueId());
         }
     }
@@ -103,9 +105,11 @@ Logger.getGlobal().info("fabrick without marker");
                     }
                     message = message.append(messageShaders).append(Component.text("\n"));
                     message = message.append(messageManualMods);
+                    message = message.append(messageConfirmIgnore);
                 }
             } else {
                 message = message.append(messageUnsupportedVanilla);
+                message = message.append(messageConfirmIgnore);
             }
             sendMessage(player, message);
         //}, 0, 20));
