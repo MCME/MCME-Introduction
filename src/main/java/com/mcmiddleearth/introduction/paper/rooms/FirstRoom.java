@@ -34,7 +34,7 @@ public class FirstRoom extends Room {
             if(displayWorld != null && disp.getString("pos") != null) {
                 displayLocation = getLocation(displayWorld, "pos", disp);
             }
-            Component displayText = getMessage(disp.getString("text", "{\"text\":\"\"}"));
+            Component displayText = getMessage(disp.getString("text", "{\"text\":\"\"}").replace("<server_version>", Bukkit.getMinecraftVersion()));
 
             // spawn the TextDisplay entity synchronously as part of the room construction
             if(displayLocation != null && displayWorld != null) {

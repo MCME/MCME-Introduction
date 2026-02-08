@@ -11,7 +11,6 @@ import org.bukkit.entity.Player;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.logging.Logger;
 
 public class ChatPacketListener extends PacketAdapter {
 
@@ -33,12 +32,12 @@ public class ChatPacketListener extends PacketAdapter {
             //if (comp != null) {
             String message = comp.getJson();
             //String message = event.getPacket().getStrings().readSafely(0);
-            Logger.getGlobal().info("Message to silenced: "+message);
-            Logger.getGlobal().info("Contains marker: "+(message!=null?message.contains(IntroductionPlugin.CHANNEL):"null"));
+            //Logger.getGlobal().info("Message to silenced: "+message);
+            //Logger.getGlobal().info("Contains marker: "+(message!=null?message.contains(IntroductionPlugin.CHANNEL):"null"));
             if(!(message != null && message.contains(IntroductionPlugin.CHANNEL))) {
                 event.setCancelled(true);
-                Logger.getGlobal().info("Blocked chat packet to " + event.getPlayer().getName()
-                        + " (" + event.getPacketType().name() + ")");
+                //Logger.getGlobal().info("Blocked chat packet to " + event.getPlayer().getName()
+                //        + " (" + event.getPacketType().name() + ")");
             }
         }
     }

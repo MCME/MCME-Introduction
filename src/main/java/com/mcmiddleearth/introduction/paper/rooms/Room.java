@@ -37,6 +37,7 @@ public abstract class Room {
     private final String[] tpTransitionTimes;
     private final boolean canIgnore;
     private final long actionBarPeriod, actionBarDelay;
+    private final int enterMoveDelay;
     private final String advancementKey, advancementDisplay;
     private final Advancement advancement;
 
@@ -90,6 +91,7 @@ public abstract class Room {
         } else {
             this.tpTarget = getLocation(world, "tpTarget", locationConfig);
         }
+        this.enterMoveDelay = config.getInt("roomEnterMoveDelay",10);
         this.actionBarPeriod = config.getLong("actionBarPeriod", 40);
         this.actionBarDelay = config.getLong("actionBarDelay", 40);
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
@@ -486,5 +488,9 @@ public abstract class Room {
             return overlays.contains(key);
         }
         return false;
+    }
+
+    public int getEnterMoveDelay() {
+        return enterMoveDelay;
     }
 }

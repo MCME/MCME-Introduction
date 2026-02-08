@@ -129,7 +129,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 } else {
                     if(!room.handleEnter(player)
                             && room.getPlayerEnterTime(player.getUniqueId())
-                                 + IntroductionPlugin.getInstance().getConfig().getInt("roomEnterMoveDelay",10)
+                                 + room.getEnterMoveDelay()
                                 < Bukkit.getCurrentTick()) {
                         Location loc = player.getLocation().clone();
                         loc.setPitch(0);
