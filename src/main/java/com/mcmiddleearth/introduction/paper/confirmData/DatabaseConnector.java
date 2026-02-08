@@ -5,7 +5,6 @@ import org.bukkit.Bukkit;
 
 import java.sql.*;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Simple MySQL connector that reads credentials from the plugin config and

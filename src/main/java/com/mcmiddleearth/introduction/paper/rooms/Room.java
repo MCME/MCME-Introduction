@@ -358,8 +358,8 @@ public abstract class Room {
     }
 
     private void sendActionBar(Player player) {
+//Logger.getGlobal().info("run task "+this);
         stopActionBar(player);
-//Logger.getGlobal().info("run task");
         actionBarTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(IntroductionPlugin.getInstance(), () -> {
             player.sendActionBar(messageActionBar);
         },actionBarDelay, actionBarPeriod));
@@ -367,7 +367,7 @@ public abstract class Room {
 
     private void stopActionBar(Player player) {
         BukkitTask task = actionBarTasks.get(player.getUniqueId());
-//Logger.getGlobal().info("cancel: "+task);
+//Logger.getGlobal().info("stop task: "+task+ " "+this);
         if(task!= null) {
 //Logger.getGlobal().info("cancel task");
             task.cancel();

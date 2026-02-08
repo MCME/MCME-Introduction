@@ -26,10 +26,10 @@ public class FirstRoom extends Room {
         messageWelcome = getMessage(config.getString("messageWelcome", "{\"text\":\"\"}"));
         //messageRpWarning = getMessage(config.getString("messageRpWarning", "{\"text\":\"\"}"));
 
-        ConfigurationSection disp = (locationConfig!=null?config.getConfigurationSection("displayEntity"):null);
+        ConfigurationSection disp = (locationConfig!=null?locationConfig.getConfigurationSection("displayEntity"):null);
         if(disp != null) {
             // Always use the room's configured world (do not allow overriding in the subsection)
-            String worldName = config.getString("world");
+            String worldName = locationConfig.getString("world");
             World displayWorld = (worldName != null ? Bukkit.getWorld(worldName) : null);
             if(displayWorld != null && disp.getString("pos") != null) {
                 displayLocation = getLocation(displayWorld, "pos", disp);
