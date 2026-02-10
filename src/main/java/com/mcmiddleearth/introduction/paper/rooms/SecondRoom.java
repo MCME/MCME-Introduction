@@ -52,13 +52,13 @@ public class SecondRoom extends Room {
         messageConfirmIgnore = getMessage(config.getString("messageConfirmIgnore", "{\"text\":\"\"}"));
     }
 
-    /*@Override
-    public void handleExit(Player player) {
-        super.handleExit(player);
+    @Override
+    public void teleport(Player player, Room previous, Room next) {
+        super.teleport(player, previous, next);
         long reminederDelay = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                                            ()-> startReminderTask(player), reminederDelay);
-    }*/
+    }
 
     @Override
     public boolean isSkipped(Player player) {
@@ -175,12 +175,12 @@ public class SecondRoom extends Room {
             @Override
             public void run() {
 //Logger.getGlobal().info("Reminder task running for "+player.getName());
-                if (isSkipped(player) || !player.isOnline()) {
+                if (isSkipped(player) || !player.isOnline() || IntroductionPlugin.getInstance().isInsideRoom(player)) {
 //Logger.getGlobal().info("cancel reminder task");
                     cancel();
                     return;
                 }
-                if (isRpLoaded(RpManager.getPlayerData(player)) &&  !IntroductionPlugin.getInstance().isInsideRoom(player)) {
+                if (isRpLoaded(RpManager.getPlayerData(player)) ){ //!IntroductionPlugin.getInstance().isInsideRoom(player)) {
                     handleOverride(player, true);
                     startStopReminderTask(player);
                 }
