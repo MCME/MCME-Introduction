@@ -64,9 +64,9 @@ public class IntroductionChain {
             startBroadcast = config.getString("broadcastMessage"," ");
             List<String> chainDisplays = config.getStringList("advancementDisplays");
             for (int i = 0; i < chainDisplays.size(); i++) {
-Logger.getGlobal().info("Load: " + advancementKey);
+//Logger.getGlobal().info("Load: " + advancementKey);
                 NamespacedKey key = NamespacedKey.fromString(advancementKey + i);
-Logger.getGlobal().info("Key: "+key);
+//Logger.getGlobal().info("Key: "+key);
                 //NamespacedKey key2 = NamespacedKey.fromString(advancementKey + (char)(64+i));
 //Logger.getGlobal().info("Key2: "+key2);
                 advancements.add(Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey + i),
@@ -76,6 +76,7 @@ Logger.getGlobal().info("Key: "+key);
     }
 
     public static void startChain(Player player) {
+        interruptChain(player);
         player.sendTitlePart(TitlePart.TITLE, (startTitle != null ? startTitle : Component.text("Welcome")));
         player.sendTitlePart(TitlePart.SUBTITLE, (startSubtitle != null ? startSubtitle : Component.text("to")
                 .append(Component.text("Minecraft Middle-earth").color(TextColor.fromCSSHexString("ffc13b")))));
@@ -84,19 +85,21 @@ Logger.getGlobal().info("Key: "+key);
                 Duration.ofSeconds((stay != 0 ? stay : 5)),
                 Duration.ofSeconds(fadeOut)));
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> player.sendMessage(startMessage), 20 * (fadeIn + stay + fadeOut));
-        if (!finishedPlayers.contains(player.getUniqueId())) {
-            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                int playerIndex = startBroadcast.indexOf("_@p_");
-                String send = startBroadcast.substring(0, playerIndex)
-                        + player.getName()
-                        + startBroadcast.substring(playerIndex + 4);
-                //Component broadcastMessage = LegacyComponentSerializer.legacy('§').deserialize(send);
+        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+            int playerIndex = startBroadcast.indexOf("_@p_");
+            String send = startBroadcast.substring(0, playerIndex)
+                    + player.getName()
+                    + startBroadcast.substring(playerIndex + 4);
+            //Component broadcastMessage = LegacyComponentSerializer.legacy('§').deserialize(send);
+            if (!finishedPlayers.contains(player.getUniqueId())) {
                 ConnectUtil.sendMessage(player, "", "", send, 0);
                 //Bukkit.broadcast(broadcastMessage);
                 finishedPlayers.add(player.getUniqueId());
                 saveFinishedPlayers();
-            }, startBroadcastDelay);
-        }
+            } else {
+                player.sendMessage(send);
+            }
+        }, startBroadcastDelay);
         playerStages.put(player.getUniqueId(), 0);
         continueChain(player);
     }
@@ -117,7 +120,7 @@ Logger.getGlobal().info("Key: "+key);
                     public void run() {
                         if(playerStages.containsKey(player.getUniqueId())) {
                             int stage = playerStages.get(player.getUniqueId());
-Logger.getGlobal().info("Stage: " + stage + " for " + player.getName());
+//Logger.getGlobal().info("Stage: " + stage + " for " + player.getName());
                             if (stage < advancements.size()) {
                                 player.getAdvancementProgress(advancements.get(stage)).awardCriteria("manual");
                                 Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
@@ -138,7 +141,7 @@ Logger.getGlobal().info("Stage: " + stage + " for " + player.getName());
     }
 
     public static void interruptChain(Player player) {
-        BukkitTask task = playerTasks.get(player.getUniqueId());
+        BukkitTask task = playerTasks.remove(player.getUniqueId());
         if(task!=null) task.cancel();
     }
 

@@ -215,7 +215,7 @@ public abstract class Room {
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
             playerGamemodes.remove(player.getUniqueId());
             stopActionBar(player);
-Logger.getGlobal().info("unsilence delay: "+ unsilenceDelay);
+//Logger.getGlobal().info("unsilence delay: "+ unsilenceDelay);
             if(delayUnSilence) {
                 unsilenceTasks.put(player.getUniqueId(), new BukkitRunnable() {
                     @Override
@@ -274,7 +274,7 @@ Logger.getGlobal().info("unsilence delay: "+ unsilenceDelay);
                 next.handleEnter(player);
             } else {
 //                Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-Logger.getGlobal().info("Strart introduction chain");
+//Logger.getGlobal().info("Strart introduction chain");
               IntroductionChain.startChain(player);
 //                }, unsilenceDelay);
             }
