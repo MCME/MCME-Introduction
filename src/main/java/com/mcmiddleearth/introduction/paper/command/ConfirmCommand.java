@@ -59,7 +59,8 @@ public class ConfirmCommand {
                             ConfirmDataManager mgr = IntroductionPlugin.getInstance().getConfirmDataManager();
                             mgr.resetConfirmations(player.getUniqueId().toString());
                             IntroductionPlugin.sendInfoMessage(player,"Your confirmation state has been reset.");
-                            ((SecondRoom)IntroductionPlugin.getInstance().getSecond()).startReminderTask(player);
+                            SecondRoom second = ((SecondRoom)IntroductionPlugin.getInstance().getSecond());
+                            second.startReminderTask(player);
                             return Command.SINGLE_SUCCESS;
                         }))
                 .build();

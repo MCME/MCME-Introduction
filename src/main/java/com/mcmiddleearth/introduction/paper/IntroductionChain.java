@@ -35,11 +35,13 @@ public class IntroductionChain {
 
     private static Component startMessage, startTitle, startSubtitle;
     private static String startBroadcast;
+    private static long startBroadcastDelay;
     private static final String finishedPlayerFilename = "finishedPlayerList.uid";
     private static long fadeIn, stay, fadeOut;
 
     public static void load() {
         try(Scanner scanner = new Scanner(new File(IntroductionPlugin.getInstance().getDataFolder(),finishedPlayerFilename))) {
+            finishedPlayers.clear();
             while(scanner.hasNext()) {
                 finishedPlayers.add(UUID.fromString(scanner.nextLine()));
             }
@@ -58,6 +60,7 @@ public class IntroductionChain {
                 fadeOut = titleConfig.getLong("fadeOut");
                 stay = titleConfig.getLong("stay");
             }
+            startBroadcastDelay = config.getLong("startBroadcastDelay", 200);
             startBroadcast = config.getString("broadcastMessage"," ");
             List<String> chainDisplays = config.getStringList("advancementDisplays");
             for (int i = 0; i < chainDisplays.size(); i++) {
@@ -92,7 +95,7 @@ Logger.getGlobal().info("Key: "+key);
                 //Bukkit.broadcast(broadcastMessage);
                 finishedPlayers.add(player.getUniqueId());
                 saveFinishedPlayers();
-            }, 20 * (fadeIn + stay + fadeOut) + 200);
+            }, startBroadcastDelay);
         }
         playerStages.put(player.getUniqueId(), 0);
         continueChain(player);

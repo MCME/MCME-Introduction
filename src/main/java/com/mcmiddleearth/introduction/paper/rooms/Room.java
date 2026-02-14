@@ -38,6 +38,7 @@ public abstract class Room {
     private final boolean canIgnore;
     private final long actionBarPeriod, actionBarDelay;
     private final int enterMoveDelay;
+    private final int unsilenceDelay;
     private final String advancementKey, advancementDisplay;
     private final Advancement advancement;
 
@@ -50,6 +51,7 @@ public abstract class Room {
 
     private final Map<UUID, BukkitTask> actionBarTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> overlayTasks = new HashMap<>();
+    private final Map<UUID, BukkitTask> unsilenceTasks = new HashMap<>();
 
     // Resource pack related messages (loaded from config JSON)
     private final Component rpFailureMessage;
@@ -96,6 +98,7 @@ public abstract class Room {
         this.actionBarDelay = config.getLong("actionBarDelay", 40);
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
         this.messageActionBar = getMessage(config.getString("messageActionBar", "{\"text\":\"\"}"));
+        this.unsilenceDelay = config.getInt("unsilenceDelay", 20);
         this.advancementKey = config.getString("advancementKey", "mcme:intro");
         this.advancementDisplay = config.getString("advancementDisplay", Room.TestDisplay.getAdvancementTestDisplay);
         this.tpTransitionTimes = Objects.requireNonNull(config.getString("tpTransitionTimes")).split(" ");
@@ -184,6 +187,7 @@ public abstract class Room {
                 sendChat(player);
                 sendActionBar(player);
                 sendAdvancement(player);
+                RoomListener.cancelAllUnsilenceTasks(player);
                 silence(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
@@ -199,7 +203,7 @@ public abstract class Room {
         return false;
     }
 
-    public void handleExit(Player player) {
+    public void handleExit(Player player, boolean delayUnSilence) {
 //Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
 //Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
         if(playerGamemodes.containsKey(player.getUniqueId())) {
@@ -211,7 +215,18 @@ public abstract class Room {
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
             playerGamemodes.remove(player.getUniqueId());
             stopActionBar(player);
-            unSilence(player);
+Logger.getGlobal().info("unsilence delay: "+ unsilenceDelay);
+            if(delayUnSilence) {
+                unsilenceTasks.put(player.getUniqueId(), new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        unSilence(player);
+                    }
+                }.runTaskLater(IntroductionPlugin.getInstance(), unsilenceDelay));
+            } else {
+                cancelUnSilence(player);
+                unSilence(player);
+            }
         }
     }
 
@@ -250,17 +265,20 @@ public abstract class Room {
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-            previous.handleExit(player);
+            previous.handleExit(player, true);
             //RoomListener.allowTeleportOut(player);
             player.teleport(tpTarget);
             previous.awaitingTeleport.remove(player.getUniqueId());
 //Logger.getGlobal().info("UNSET awaiting teleport");
-            if(next != null) {
+            if (next != null) {
                 next.handleEnter(player);
             } else {
-                IntroductionChain.startChain(player);
+//                Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+Logger.getGlobal().info("Strart introduction chain");
+              IntroductionChain.startChain(player);
+//                }, unsilenceDelay);
             }
-                },Long.parseLong(tpTransitionTimes[0]));
+        },Long.parseLong(tpTransitionTimes[0]));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -454,6 +472,14 @@ public abstract class Room {
         player.sendPluginMessage(IntroductionPlugin.getInstance(),
                 IntroductionPlugin.CHANNEL,
                 out.toByteArray());
+    }
+
+    public void cancelUnSilence(Player player) {
+        BukkitTask task = unsilenceTasks.get(player.getUniqueId());
+        if(task!= null) {
+            task.cancel();
+            unsilenceTasks.remove(player.getUniqueId());
+        }
     }
 
     private static String getConfigStringWithFallback(ConfigurationSection roomConfig, String key) {

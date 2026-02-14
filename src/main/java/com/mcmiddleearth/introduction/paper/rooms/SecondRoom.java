@@ -167,6 +167,9 @@ public class SecondRoom extends Room {
 
     public void startReminderTask(Player player) {
 //Logger.getGlobal().info("start reminder task for "+player.getName());
+        if(isSkipped(player)) {
+            return;
+        }
         cancelReminderTask(player);
         long reminderPeriod =  IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
         handleOverride(player, true);

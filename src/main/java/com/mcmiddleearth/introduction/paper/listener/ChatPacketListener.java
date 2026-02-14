@@ -11,6 +11,7 @@ import org.bukkit.entity.Player;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class ChatPacketListener extends PacketAdapter {
 
@@ -44,10 +45,12 @@ public class ChatPacketListener extends PacketAdapter {
 
     public static void silence(Player player) {
         silenced.add(player.getUniqueId());
+Logger.getGlobal().info("Silenced player: " + player.getName());
     }
 
     public static void unSilence(Player player) {
         silenced.remove(player.getUniqueId());
+Logger.getGlobal().info("Unsilenced player: " + player.getName());
     }
 
     public static void unSilenceAll() {

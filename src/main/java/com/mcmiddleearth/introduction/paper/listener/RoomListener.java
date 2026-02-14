@@ -173,9 +173,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Room second = IntroductionPlugin.getInstance().getSecond();
                 Player player = event.getPlayer();
-                if(!second.isSkipped(player)) {
-                    ((SecondRoom)second).startReminderTask(player);
-                }
+                ((SecondRoom)second).startReminderTask(player);
                 IntroductionChain.continueChain(player);
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
         }
@@ -234,9 +232,15 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     }
 
     public static void exitAllRooms(Player player) {
-        IntroductionPlugin.getInstance().getFirst().handleExit(player);
-        IntroductionPlugin.getInstance().getSecond().handleExit(player);
+        IntroductionPlugin.getInstance().getFirst().handleExit(player, false);
+        IntroductionPlugin.getInstance().getSecond().handleExit(player, false);
     }
+
+    public static void cancelAllUnsilenceTasks(Player player) {
+        IntroductionPlugin.getInstance().getFirst().cancelUnSilence(player);
+        IntroductionPlugin.getInstance().getSecond().cancelUnSilence(player);
+    }
+
 
     public static void showStatus() {
         Logger.getGlobal().info("First");
