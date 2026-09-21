@@ -3,7 +3,7 @@ version: '${plugin.version}'
 main: com.mcmiddleearth.introduction.paper.IntroductionPlugin
 api-version: 1.21
 authors: [ ${plugin.author} ]
-depends: [ MCME-Architect, ViaVersion, ProtocolLib ]
+depend: [ MCME-Architect, ViaVersion, ProtocolLib ]
 description: ${plugin.description}
 
 permissions:
