@@ -6,17 +6,24 @@
 
     <groupId>com.mcmiddleearth</groupId>
     <artifactId>MCME-Introduction</artifactId>
-    <version>1.1</version>
+    <version>1.2.0</version>
     <packaging>jar</packaging>
 
     <name>MCME-Introduction</name>
 
     <description>NewPlayerWorld Listener</description>
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
+        <!-- Velocity 4.2.1 and Paper 26.2 both require Java 25 at runtime. -->
+        <velocity.api.version>4.2.1-SNAPSHOT</velocity.api.version>
+        <!-- Build kind for the jar name: RELEASE | SNAPSHOT | DEV. Override with -Dbuild.type=DEV. -->
+        <build.type>RELEASE</build.type>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Use a property for the local velocity-proxy jar path to avoid hard-coded systemPath -->
-        <velocity.proxy.path>D:/MCME/Plugins/Projects/Velocity/proxy/build/libs/velocity-proxy-3.4.0-SNAPSHOT.jar</velocity.proxy.path>
+        <!-- velocity-proxy is NOT published to any Maven repository, but this plugin needs its
+             internal MinecraftPacket / SystemChatPacket types to filter chat. Drop the proxy jar at
+             the path below, or override with -Dvelocity.proxy.path=/abs/path/to/velocity-<ver>.jar
+             The full proxy jar from https://fill.papermc.io/ works; it contains the internals. -->
+        <velocity.proxy.path>${project.basedir}/libs/velocity-proxy.jar</velocity.proxy.path>
         <!-- Central plugin metadata for resource filtering -->
         <plugin.id>mcme-introduction</plugin.id>
         <plugin.name>MCME-Introduction</plugin.name>
@@ -27,13 +34,41 @@
     </properties>
 
     <build>
+        <!-- MCME jar naming convention: {PluginName}-{A.B.C}-{SNAPSHOT|DEV|RELEASE}-{commit id}
+             Several MCME jars have existed at the same version string with different content,
+             which made them impossible to tell apart on a server. The commit id fixes that. -->
+        <finalName>${project.artifactId}-${project.version}-${build.type}-${git.commit.id.abbrev}</finalName>
         <plugins>
+            <!-- Resolves ${git.commit.id.abbrev} for the jar name above, from the current HEAD.
+                 Build after committing, or the jar will be stamped with the previous commit. -->
+            <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <version>9.0.1</version>
+                <executions>
+                    <execution>
+                        <id>resolve-git-commit</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <abbrevLength>7</abbrevLength>
+                    <generateGitPropertiesFile>false</generateGitPropertiesFile>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
+                    </includeOnlyProperties>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.0</version>
                 <configuration>
-                    <release>21</release>
+                    <release>${java.version}</release>
                 </configuration>
             </plugin>
             <!-- Generate VelocityIntroductionPlugin.java from filtered template into target/generated-sources/plugin-info -->
@@ -118,20 +153,22 @@
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-api</artifactId>
-            <version>3.4.0-SNAPSHOT</version>
+            <version>${velocity.api.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-proxy</artifactId>
-            <version>3.4.0-SNAPSHOT</version>
+            <version>${velocity.api.version}</version>
             <scope>system</scope>
             <systemPath>${velocity.proxy.path}</systemPath>
         </dependency>
         <dependency>
             <groupId>com.mcmiddleearth</groupId>
+            <!-- 2.10.9 (the `development` line) is what production runs and the only Architect
+                 that has RpPlayerStatus, which this plugin's Paper side imports. -->
             <artifactId>MCME-Architect</artifactId>
-            <version>2.10.6</version>
+            <version>2.10.9</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -164,8 +201,10 @@
         </dependency>
         <dependency>
             <groupId>com.mcmiddleearth</groupId>
+            <!-- 1.5.1 no longer exists in any repository or tag; 3.0.0 carries the same
+                 ConnectUtil.sendMessage and PlayerConnectEvent signatures this plugin uses. -->
             <artifactId>MCME-Connect</artifactId>
-            <version>1.5.1</version>
+            <version>3.0.0</version>
             <scope>provided</scope>
         </dependency>
         <!-- MySQL JDBC driver for database persistence -->

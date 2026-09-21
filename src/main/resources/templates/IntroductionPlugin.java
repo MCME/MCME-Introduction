@@ -17,7 +17,7 @@ import com.velocitypowered.proxy.protocol.packet.chat.SystemChatPacket;
 import io.github._4drian3d.vpacketevents.api.event.PacketSendEvent;
 import org.slf4j.Logger;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
@@ -36,6 +36,18 @@ public final class IntroductionPlugin {
     private final Logger logger;
     private final Set<UUID> silenced = new HashSet<>();
 
+    /**
+     * Velocity constructs this class through Guice, so the constructor must carry an
+     * annotation the injector recognises.
+     * <p>
+     * Guice's own {@code com.google.inject.Inject} is used rather than a JSR-330
+     * {@code @Inject}. Velocity 3.x shipped Guice 6, which understood both
+     * {@code javax.inject} and {@code jakarta.inject}; Velocity 4 ships Guice 7, which
+     * dropped {@code javax.inject} support entirely. A {@code @javax.inject.Inject} here is
+     * therefore invisible to Velocity 4's injector, which then reports the class as having
+     * neither an injectable nor a no-arg constructor. Guice's own annotation is recognised
+     * by every Guice version, so it stays correct on both proxies.
+     */
     @Inject
     public IntroductionPlugin(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
         this.proxyServer = server;
