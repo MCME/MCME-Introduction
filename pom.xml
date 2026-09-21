@@ -204,7 +204,7 @@
             <!-- 1.5.1 no longer exists in any repository or tag; 3.0.0 carries the same
                  ConnectUtil.sendMessage and PlayerConnectEvent signatures this plugin uses. -->
             <artifactId>MCME-Connect</artifactId>
-            <version>3.0.0</version>
+            <version>3.0.1</version>
             <scope>provided</scope>
         </dependency>
         <!-- MySQL JDBC driver for database persistence -->
