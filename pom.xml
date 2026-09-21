@@ -128,6 +128,20 @@
     </build>
 
     <repositories>
+        <!-- MCME's own Reposilite. MCME-Connect is published here; MCME-Architect is not yet,
+             so that one still has to be installed locally to build this project. -->
+        <repository>
+            <id>mcme-releases</id>
+            <url>https://repo.mcmiddleearth.com/releases</url>
+        </repository>
+        <repository>
+            <id>mcme-snapshots</id>
+            <url>https://repo.mcmiddleearth.com/snapshots</url>
+        </repository>
+        <repository>
+            <id>mcme-mirror</id>
+            <url>https://repo.mcmiddleearth.com/mirror</url>
+        </repository>
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
