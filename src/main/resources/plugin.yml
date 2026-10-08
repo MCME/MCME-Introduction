@@ -1,11 +1,12 @@
-name: NewPlayerWorld-Maski
-version: '${project.version}'
-main: com.mcmiddleearth.newplayerworldmaski.NewPlayerWorldMaski
-api-version: 1.18
-authors: [ Jubo, maski98 ]
-description: NewPlayerWorld Listener
+name: '${plugin.name}'
+version: '${plugin.version}'
+main: com.mcmiddleearth.introduction.paper.IntroductionPlugin
+api-version: 1.21
+authors: [ ${plugin.author} ]
+depend: [ MCME-Architect, ViaVersion, ProtocolLib ]
+description: ${plugin.description}
 
 permissions:
-  npw.staff:
-    description: for administrative purposes
+  introduction.reload:
     default: op
+    description: allows to reload plugin data.
