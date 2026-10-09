@@ -15,6 +15,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -24,6 +25,9 @@ public class SecondRoom extends Room {
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded,
                             messageManualMods, messageRunInstaller, messageConfirmIgnore;
+
+    // Client versions that get no compatibility warning, from supportedVersions in config.yml.
+    private final List<String> supportedVersions;
 
     private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
 
@@ -37,13 +41,24 @@ public class SecondRoom extends Room {
         overlays.add(overlayWarningMcme);
         overlays.add(overlayWarningMissingMod);
         overlays.add(overlayWarningModded);
-        messageUnsupportedVanilla = getMessage(config.getString("messageUnsupportedVanilla", "{\"text\":\"\"}"));
-        messageShaders = getMessage(config.getString("messageShaders", "{\"text\":\"\"}"));
-        messageOptifine = getMessage(config.getString("messageOptifine", "{\"text\":\"\"}"));
-        messageUnsupportedModded = getMessage(config.getString("messageUnsupportedModded", "{\"text\":\"\"}"));
-        messageManualMods = getMessage(config.getString("messageManualMods", "{\"text\":\"\"}"));
-        messageRunInstaller = getMessage(config.getString("messageRunInstaller", "{\"text\":\"\"}"));
-        messageConfirmIgnore = getMessage(config.getString("messageConfirmIgnore", "{\"text\":\"\"}"));
+        // Without a list, only the server's own version is supported.
+        List<String> configuredVersions = IntroductionPlugin.getInstance().getConfig().getStringList("supportedVersions");
+        supportedVersions = (configuredVersions.isEmpty() ? List.of(Bukkit.getMinecraftVersion()) : List.copyOf(configuredVersions));
+        messageUnsupportedVanilla = getVersionMessage(config, "messageUnsupportedVanilla");
+        messageShaders = getVersionMessage(config, "messageShaders");
+        messageOptifine = getVersionMessage(config, "messageOptifine");
+        messageUnsupportedModded = getVersionMessage(config, "messageUnsupportedModded");
+        messageManualMods = getVersionMessage(config, "messageManualMods");
+        messageRunInstaller = getVersionMessage(config, "messageRunInstaller");
+        messageConfirmIgnore = getVersionMessage(config, "messageConfirmIgnore");
+    }
+
+    /**
+     * Loads a message, with &lt;supported_versions&gt; in it replaced by the supported versions.
+     */
+    private Component getVersionMessage(ConfigurationSection config, String key) {
+        return getMessage(config.getString(key, "{\"text\":\"\"}")
+                .replace("<supported_versions>", String.join(", ", supportedVersions)));
     }
 
     @Override
@@ -121,11 +136,16 @@ public class SecondRoom extends Room {
     }
 
     public boolean isSupportedVersion(Player player) {
-//Logger.getGlobal().info(Bukkit.getServer().getMinecraftVersion());
-        int protocolId = Via.getAPI().getPlayerVersion(player);
-        ProtocolVersion version = ProtocolVersion.getProtocol(protocolId);
-//Logger.getGlobal().info(version.getName());
-        return Bukkit.getServer().getMinecraftVersion().equals(version.getName());
+        return isSupportedVersion(Via.getAPI().getPlayerProtocolVersion(player));
+    }
+
+    /**
+     * Whether a client version is supported. Releases that share a protocol cannot be told
+     * apart, so a listed version covers all of them: "26.1.2" also accepts 26.1 and 26.1.1,
+     * whose shared protocol ViaVersion names "26.1-26.1.2".
+     */
+    public boolean isSupportedVersion(ProtocolVersion clientVersion) {
+        return supportedVersions.stream().anyMatch(clientVersion.getIncludedVersions()::contains);
     }
 
     public boolean isForge(Player player) {
