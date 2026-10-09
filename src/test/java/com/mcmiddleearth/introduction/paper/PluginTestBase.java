@@ -25,14 +25,14 @@ import org.mockito.Mockito;
  *       absent. Tests must not reach code that calls into them.</li>
  * </ul>
  */
-abstract class PluginTestBase {
+public abstract class PluginTestBase {
 
     protected ServerMock server;
     protected IntroductionPlugin plugin;
     private MockedStatic<ProtocolLibrary> protocolLibrary;
 
     @BeforeEach
-    void startServer() {
+    protected void startServer() {
         server = MockBukkit.mock(new AdvancementServerMock());
         protocolLibrary = Mockito.mockStatic(ProtocolLibrary.class);
         protocolLibrary.when(ProtocolLibrary::getProtocolManager).thenReturn(Mockito.mock(ProtocolManager.class));
@@ -40,7 +40,7 @@ abstract class PluginTestBase {
     }
 
     @AfterEach
-    void stopServer() {
+    protected void stopServer() {
         try {
             MockBukkit.unmock();
         } finally {
