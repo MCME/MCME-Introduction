@@ -49,7 +49,6 @@ public class IntroductionPlugin extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         instance = this;
-        getServer().getPluginManager().registerEvents(new RoomListener(),this);
         getServer().getMessenger()
                 .registerOutgoingPluginChannel(this, CHANNEL);
         ProtocolManager manager = ProtocolLibrary.getProtocolManager();
