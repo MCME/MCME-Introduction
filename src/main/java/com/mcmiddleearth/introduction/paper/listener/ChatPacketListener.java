@@ -29,18 +29,25 @@ public class ChatPacketListener extends PacketAdapter {
         UUID uuid = event.getPlayer().getUniqueId();
 
         if (silenced.contains(uuid)) {
-            WrappedChatComponent comp = event.getPacket().getChatComponents().read(0);
-            //if (comp != null) {
-            String message = comp.getJson();
-            //String message = event.getPacket().getStrings().readSafely(0);
-            //Logger.getGlobal().info("Message to silenced: "+message);
-            //Logger.getGlobal().info("Contains marker: "+(message!=null?message.contains(IntroductionPlugin.CHANNEL):"null"));
-            if(!(message != null && message.contains(IntroductionPlugin.CHANNEL))) {
+            // readSafely returns null both when the packet has no chat component field and when
+            // the field is empty, as it usually is for player chat. read(0) threw or returned null.
+            WrappedChatComponent comp = event.getPacket().getChatComponents().readSafely(0);
+            String message = (comp != null ? comp.getJson() : null);
+            if (isBlocked(uuid, message)) {
                 event.setCancelled(true);
-                //Logger.getGlobal().info("Blocked chat packet to " + event.getPlayer().getName()
-                //        + " (" + event.getPacketType().name() + ")");
             }
         }
+    }
+
+    /**
+     * Whether a chat message must be hidden from a player. A silenced player sees only this
+     * plugin's own messages, which carry the channel name as their insertion.
+     *
+     * @param messageJson the message as JSON, or null when the packet holds no readable message
+     */
+    static boolean isBlocked(UUID uuid, String messageJson) {
+        return silenced.contains(uuid)
+                && !(messageJson != null && messageJson.contains(IntroductionPlugin.CHANNEL));
     }
 
     public static void silence(Player player) {

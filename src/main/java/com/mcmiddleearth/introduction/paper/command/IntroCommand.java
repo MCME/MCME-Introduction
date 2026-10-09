@@ -56,23 +56,6 @@ Logger.getGlobal().info("input: "+context.getInput());
                                                 IntroductionPlugin.getInstance().getGlowListener().setItemGlow(player, true);
 //Logger.getGlobal().info("glowitem on");
                                             }
-                                                //try {
-                                                //KotlinBridge.info();
-                                                /*Class<?> queryClass = Class.forName("com.typewritermc.core.entries.Query");
-                                                for(Method method: queryClass.getDeclaredMethods()) {
-                                                    Logger.getGlobal().info("Method: "+method.getName());
-                                                }
-                                                Field companionField = queryClass.getField("Companion");
-                                                Object companion = companionField.get(null);
-                                                Method findMethod = companion.getClass().getDeclaredMethod("find");
-                                                Object entries = findMethod.invoke(companion);
-                                                Logger.getGlobal().info("Entries: "+entries.getClass().getName());
-                                                for(Method entryMethod: entries.getClass().getDeclaredMethods()) {
-                                                    Logger.getGlobal().info("Entry Method: "+entryMethod.getName());
-                                                }*/
-                                            /*} catch (Exception e) {
-                                                throw new RuntimeException(e);
-                                            }*/
                                             return Command.SINGLE_SUCCESS;
                                         }))))
                 .build();

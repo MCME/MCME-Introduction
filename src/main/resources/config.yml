@@ -12,6 +12,11 @@ reminderPeriod: 600
 
 roomEnterMoveDelay: 5
 
+# Client versions that get no compatibility warning in the second room. Releases that share a
+# protocol count as one: 26.1.2 also covers 26.1 and 26.1.1. Without this list, only the
+# server's own version is supported. <supported_versions> in a message shows this list.
+supportedVersions: ['26.2', '26.3']
+
 # Resource-pack messages shared across all rooms. Rooms may override any of these keys locally;
 # otherwise the values here are used as defaults.
 rpMessages:
@@ -22,29 +27,47 @@ rpMessages:
   messageRpFailedReload: '{"text":"Resource pack reload failed. Please rejoin to retry."}'
   messageRpInvalidUrl: '{"text":"The server sent an invalid resource pack URL. Contact a server administrator."}'
 
-itemGlow:
-  world: world
-  zoom: 0.1
-  rayRange: 5
-  rayWidth: 1.2
-  rayRepetitions: 5
-  glowColor: GOLD
-  pos1:
-    x: -4100
-    y: -50
-    z: -4400
-  pos2:
-    x: -4000
-    y: -30
-    z: -4300
+# Room positions, the first room's welcome text and the glowing-item area are NOT read from
+# this file. The plugin reads them from locations.yml in its folder, which it never creates.
+# A locations.yml for the hub looks like the example below. Positions are 'x y z' or
+# 'x y z yaw pitch'. Each room also needs a playerLocation: where a player is placed on
+# entering the room. displayEntity is optional and spawns in the room's world; its text is
+# Adventure JSON, and <server_version> in it is replaced by the server's Minecraft version.
+#
+# itemGlow:
+#   world: world
+#   zoom: 0.1
+#   rayRange: 5
+#   rayWidth: 1.2
+#   rayRepetitions: 5
+#   glowColor: GOLD
+#   items: []    # material names of the item-frame items that glow
+#   pos1:
+#     x: -4100
+#     y: -50
+#     z: -4400
+#   pos2:
+#     x: -4000
+#     y: -30
+#     z: -4300
+# firstRoom:
+#   world: world
+#   pos1: -4096 -39 -4378
+#   pos2: -4094 -35 -4375
+#   playerLocation: <x y z yaw pitch>
+#   tpTarget:
+#     pos: -4099 -38 -4379 180 0
+#   displayEntity:
+#     pos: -4095 -38 -4377 180 0
+#     text: '{"text":"Welcome to Middle-earth!","extra":[{"text":"\\nEnjoy your stay","color":"gold"}]}'
+# secondRoom:
+#   world: world
+#   pos1: -4101 -39 -4381
+#   pos2: -4098 -35 -4377
+#   playerLocation: <x y z yaw pitch>
+#   tpTarget:
+#     pos: -4099 -39 -4372 270 0
 firstRoom:
-  world: world
-  pos1: -4096 -39 -4378
-  pos2: -4094 -35 -4375
-  yaw: 90.0
-  pitch: 0.0
-  tpTarget:
-    pos: -4099 -38 -4379 180 0
   tpTransitionComponent: '{"text":"\uE01f","font":"fade_black"}'
   tpTransitionTimes: '10 2 10'
   actionBarPeriod: 80
@@ -55,20 +78,7 @@ firstRoom:
   advancementDisplay: '{"icon":{"id":"minecraft:stone"},"title":{"text":"Here it is, your text to show\n here just for you!"},"description":{"text":"Some Message!"},"hidden":true,"announce_to_chat":false}'
   #  cameraOverlay: "minecraft:block/stone"
   cameraOverlay: "minecraft:gui/overlay/welcome_screen"
-  # Example configuration for a TextDisplay entity that FirstRoom can spawn.
-  # FirstRoom looks for a `displayEntity` section with `pos` and `text` keys.
-  # The entity will be spawned in the room's configured `world` (do not set a world here).
-  displayEntity:
-    # Position format: 'x y z [yaw pitch]' — same format as other pos entries in this file.
-    pos: -4095 -38 -4377 180 0
-    # Text must be valid Adventure JSON (serialized). Newlines must be escaped.
-    text: '{"text":"Welcome to Middle-earth!","extra":[{"text":"\\nEnjoy your stay","color":"gold"}]}'
 secondRoom:
-  world: world
-  pos1: -4101 -39 -4381
-  pos2: -4098 -35 -4377
-  tpTarget:
-    pos: -4099 -39 -4372 270 0
   tpTransitionComponent: '{"text":"\uE01f","font":"fade_black"}'
   tpTransitionTimes: 10 2 10
   canIgnore: true
@@ -79,12 +89,12 @@ secondRoom:
   actionBarPeriod: 80
   actionBarDelay: 80
   messageActionBar: '{"text":"Press \"t\" for help."}'
-  messageUnsupportedVanilla: '{"extra":[{"bold":true,"color":"#EDB02B","text":"MCME"}," currently supports: ",{"color":"#44D63C","extra":[{"color":"white","text":","}," 1.21.1"],"text":"1.21.4"},"\n\n",{"italic":true,"color":"#D1312E","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to open instructions."}]},"extra":[{"color":"#ED2A07","extra":[""],"text":"-->"},{"bold":true,"text":"Change game version tutorial"},"<--"],"text":""},"\n\nUse ",{"color":"#7F8285","clickEvent":{"action":"run_command","value":"/confirm ignore"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to run command."}]},"text":"/confirm ignore"}," to proceed to the server hub."],"text":""}'
-  messageShaders: '{"extra":[{"bold":true,"color":"#ED1186","extra":[""],"text":"Shaders"},": MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download ",{"bold":true,"color":"#39A8ED","clickEvent":{"action":"open_url","value":"https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDAF32","text":"Download the mcme installer"}]},"text":"here"},"."],"text":""}'
+  messageUnsupportedVanilla: '{"extra":[{"bold":true,"color":"#EDB02B","text":"MCME"}," currently supports: ",{"color":"#44D63C","text":"<supported_versions>"},"\n\n",{"italic":true,"color":"#D1312E","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to open instructions."}]},"extra":[{"color":"#ED2A07","extra":[""],"text":"-->"},{"bold":true,"text":"Change game version tutorial"},"<--"],"text":""},"\n\nUse ",{"color":"#7F8285","clickEvent":{"action":"run_command","value":"/confirm ignore"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to run command."}]},"text":"/confirm ignore"}," to proceed to the server hub."],"text":""}'
+  messageShaders: '{"extra":[{"bold":true,"color":"#ED1186","extra":[""],"text":"Shaders"},": MCME offers shader users an easy to use installer that ensures all the correct mods are present. Download ",{"bold":true,"color":"#39A8ED","clickEvent":{"action":"open_url","value":"https://github.com/MCME/mcme-installer/releases/latest"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDAF32","text":"Open the MCME installer download page"}]},"text":"here"},"."],"text":""}'
   messageOptifine: '{"extra":[{"bold":true,"color":"#ED8421","text":"Optifine Users"},": If you only need Optifine to run the game smoothly (no shader use) you can disable mipmapping in ",{"italic":true,"color":"#00C49D","text":"Options"}," > ",{"italic":true,"color":"#00C49D","text":"Video Settings"}," > ",{"italic":true,"color":"#00C49D","text":"Mipmapping Levels"},". Make sure to move the slider all the way to the ",{"color":"#FF2E3C","text":"left"},". Then type: ",{"color":"#A3A3A3","text":"/confirm optifine"}," in chat to proceed to the hub."],"text":""}'
-  messageUnsupportedModded: '{"extra":[{"bold":true,"color":"#EDB02B","text":"MCME"}," currently supports: ",{"color":"#44D63C","text":"Fabric <supported game versions>"},"\n\n",{"italic":true,"color":"#D1312E","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to open instructions."}]},"extra":[{"color":"#ED2A07","extra":[""],"text":"-->"},{"bold":true,"text":"Change game version tutorial"},"<--"],"text":""},"\n\nUse ",{"color":"#7F8285","clickEvent":{"action":"run_command","value":"/confirm ignore"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to run command."}]},"text":"/confirm ignore"}," to proceed to the server hub."],"text":""}'
+  messageUnsupportedModded: '{"extra":[{"bold":true,"color":"#EDB02B","text":"MCME"}," currently supports: ",{"color":"#44D63C","text":"Fabric <supported_versions>"},"\n\n",{"italic":true,"color":"#D1312E","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/attachments/versionselect-gif.15786/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to open instructions."}]},"extra":[{"color":"#ED2A07","extra":[""],"text":"-->"},{"bold":true,"text":"Change game version tutorial"},"<--"],"text":""},"\n\nUse ",{"color":"#7F8285","clickEvent":{"action":"run_command","value":"/confirm ignore"},"hoverEvent":{"action":"show_text","contents":[{"color":"#2BA7FF","text":"Click to run command."}]},"text":"/confirm ignore"}," to proceed to the server hub."],"text":""}'
   messageManualMods: '{"extra":[{"bold":true,"color":"#B4ED24","text":"Manual Mod Loading"},"/",{"bold":true,"color":"#1FC0ED","text":"Custom Launchers"},": To manually add the required mods to your game check the ",{"bold":true,"color":"#ED2B58","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community/threads/recomended-mods-lists.7641/"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDC31C","text":"Click to view mod list"}]},"text":"mod list"},". "],"text":""}'
-  messageRunInstaller: '{"extra":[{"bold":true,"color":"#EDB418","text":"Update MCME Installation"},": \nJust run the installer again. Download ",{"bold":true,"color":"#458BED","clickEvent":{"action":"open_url","value":"https://github.com/MCME/mcme-installer/releases/download/v2.0win/MCME-Installer-2.0.jar"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDB92B","text":"Click to download installer."}]},"text":"here"},"."],"text":""}'
+  messageRunInstaller: '{"extra":[{"bold":true,"color":"#EDB418","text":"Update MCME Installation"},": \nJust run the installer again. Download ",{"bold":true,"color":"#458BED","clickEvent":{"action":"open_url","value":"https://github.com/MCME/mcme-installer/releases/latest"},"hoverEvent":{"action":"show_text","contents":[{"color":"#EDB92B","text":"Click to open the installer download page."}]},"text":"here"},"."],"text":""}'
 introductionChain:
   broadcastMessage: §6[§4Broadcast§6] §a_@p_ §9just §9joined!                           §9§lWelcome §9§lto §9§lMiddle-earth!
   startMessage: '{"extra":[{"bold":true,"color":"#FFC43B","text":"MCME"}," is a ",{"color":"#FF3639","text":"build server"}," that recreates the entirety of Middle-Earth in Minecraft. You can explore by walking around, flying (",{"color":"#FF3639","text":"/fly"},") or warping (",{"color":"#FF3639","text":"/warp"},") to your favorite places. \nThe community also gathers on ",{"bold":true,"color":"#69B4FF","clickEvent":{"action":"open_url","value":"https://www.discord.gg/mcmiddleearth"},"text":"Discord"}," and on the ",{"bold":true,"color":"#69B4FF","clickEvent":{"action":"open_url","value":"https://www.mcmiddleearth.com/community"},"text":"Forums"},". Make sure to use your ",{"color":"#FF3639","text":"in-game name"}," and only speak & write ",{"color":"#FF3639","text":"english"}," on all platforms.\n\n"],"text":"\n\n"}'

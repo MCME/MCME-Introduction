@@ -240,12 +240,4 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         IntroductionPlugin.getInstance().getFirst().cancelUnSilence(player);
         IntroductionPlugin.getInstance().getSecond().cancelUnSilence(player);
     }
-
-
-    public static void showStatus() {
-        Logger.getGlobal().info("First");
-        IntroductionPlugin.getInstance().getFirst().showPlayers();
-        Logger.getGlobal().info("Second");
-        IntroductionPlugin.getInstance().getSecond().showPlayers();
-    }
 }
