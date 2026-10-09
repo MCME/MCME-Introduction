@@ -456,10 +456,6 @@ public abstract class Room {
         }
     }
 
-    public void showPlayers() {
-        playerItems.forEach((uuid,item)->Logger.getGlobal().info(uuid+" - "+item));
-    }
-
     public void sendAdvancement(Player player) {
 //Logger.getGlobal().info("Send Advancement");
         if(advancement != null) {

@@ -1,9 +1,5 @@
 package com.mcmiddleearth.introduction.paper.rooms;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
 import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
@@ -24,8 +20,6 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class SecondRoom extends Room {
-
-    private static final ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
 
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded,
@@ -153,16 +147,6 @@ public class SecondRoom extends Room {
     private void sendMessage(Player player, Component message) {
         player.sendMessage(message);
         //player.sendActionBar(Component.text("1.21.4         ").append(Component.text(".").color(NamedTextColor.BLACK)));
-    }
-
-    public static void clearChat(Player player) {
-        try {
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.CLEAR_TITLES);
-            packet.getBooleans().write(0, true);
-            protocolManager.sendServerPacket(player, packet);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     public void startReminderTask(Player player) {

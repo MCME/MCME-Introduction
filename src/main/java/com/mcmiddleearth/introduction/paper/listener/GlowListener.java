@@ -251,6 +251,4 @@ public class GlowListener implements Listener {
             throw new RuntimeException(e);
         }
     }
-
-    private record LookEvent(ItemDisplay entity, int timestamp) { }
 }
