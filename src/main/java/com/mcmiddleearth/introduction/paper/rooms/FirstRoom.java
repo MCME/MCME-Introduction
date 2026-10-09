@@ -36,22 +36,15 @@ public class FirstRoom extends Room {
             }
             Component displayText = getMessage(disp.getString("text", "{\"text\":\"\"}").replace("<server_version>", Bukkit.getMinecraftVersion()));
 
-            // spawn the TextDisplay entity synchronously as part of the room construction
+            // spawn the TextDisplay entity synchronously as part of the room construction.
+            // unload() removes it, but a crash skips unload(): not persistent, so no copy is saved
+            // with the world for the next start to add another to.
             if(displayLocation != null && displayWorld != null) {
-                try {
-                    displayEntity = (org.bukkit.entity.TextDisplay) displayWorld.spawn(displayLocation, org.bukkit.entity.TextDisplay.class);
-                    displayEntity.text(displayText);
-                    // Try to set billboard to face players if API supports it
-                    try {
-                        java.lang.reflect.Method m = displayEntity.getClass().getMethod("setBillboard", org.bukkit.entity.Display.Billboard.class);
-                        m.invoke(displayEntity, org.bukkit.entity.Display.Billboard.CENTER);
-                    } catch (Exception ignored) {
-                        // ignore if method not available
-                    }
-                } catch (NoSuchMethodError | ClassCastException ex) {
-                    Bukkit.getLogger().warning("TextDisplay entity not supported on this server version. Skipping displayEntity for FirstRoom.");
-                    displayEntity = null;
-                }
+                displayEntity = displayWorld.spawn(displayLocation, org.bukkit.entity.TextDisplay.class, display -> {
+                    display.setPersistent(false);
+                    display.text(displayText);
+                    display.setBillboard(org.bukkit.entity.Display.Billboard.CENTER);
+                });
             }
         }
     }
