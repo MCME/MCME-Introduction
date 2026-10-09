@@ -19,6 +19,17 @@ class ListenerRegistrationTest extends PluginTestBase {
         assertEquals(1, registeredInstancesOf(ConfirmPreLoginListener.class), "ConfirmPreLoginListener");
     }
 
+    @Test
+    void eachListenerIsRegisteredOnceAfterADataReload() {
+        // What /intro reload does around the server's own data reload.
+        plugin.unloadData();
+        plugin.loadData();
+
+        assertEquals(1, registeredInstancesOf(RoomListener.class), "RoomListener");
+        assertEquals(1, registeredInstancesOf(GlowListener.class), "GlowListener");
+        assertEquals(1, registeredInstancesOf(ConfirmPreLoginListener.class), "ConfirmPreLoginListener");
+    }
+
     private long registeredInstancesOf(Class<? extends Listener> type) {
         return HandlerList.getRegisteredListeners(plugin).stream()
                 .map(RegisteredListener::getListener)

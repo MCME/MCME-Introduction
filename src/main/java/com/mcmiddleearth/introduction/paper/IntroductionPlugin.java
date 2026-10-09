@@ -69,9 +69,6 @@ public class IntroductionPlugin extends JavaPlugin {
         // Initialize confirm data manager (may use DB if configured)
         confirmDataManager = new ConfirmDataManager();
 
-        // Register pre-login listener which will load data on demand (AsyncPlayerPreLoginEvent)
-        Bukkit.getPluginManager().registerEvents(new ConfirmPreLoginListener(), this);
-
         loadData();
     }
 
@@ -109,6 +106,9 @@ public class IntroductionPlugin extends JavaPlugin {
         glowListener = new GlowListener(locationConfig.getConfigurationSection("itemGlow"));
 //Logger.getGlobal().info("Enable "+glowListener);
         Bukkit.getPluginManager().registerEvents(glowListener,this);
+        // Register pre-login listener which will load data on demand (AsyncPlayerPreLoginEvent).
+        // It is registered here rather than in onEnable because unloadData() unregisters all listeners.
+        Bukkit.getPluginManager().registerEvents(new ConfirmPreLoginListener(), this);
     }
 
     public static IntroductionPlugin getInstance(){return instance;}
