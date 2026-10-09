@@ -93,7 +93,9 @@ public abstract class Room {
         } else {
             this.tpTarget = getLocation(world, "tpTarget", locationConfig);
         }
-        this.enterMoveDelay = config.getInt("roomEnterMoveDelay",10);
+        // A room's own value wins; config.yml sets the shared value at the top level.
+        this.enterMoveDelay = config.getInt("roomEnterMoveDelay",
+                IntroductionPlugin.getInstance().getConfig().getInt("roomEnterMoveDelay", 10));
         this.actionBarPeriod = config.getLong("actionBarPeriod", 40);
         this.actionBarDelay = config.getLong("actionBarDelay", 40);
         this.tpTransitionTitle = getMessage(config.getString("tpTransitionComponent", "{\"text\":\"\"}"));
