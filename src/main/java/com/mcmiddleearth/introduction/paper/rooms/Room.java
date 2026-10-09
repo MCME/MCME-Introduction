@@ -163,11 +163,7 @@ public abstract class Room {
         IntroductionPlugin.getInstance().getFirst().handleOverride(player, false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(player, false);
         if(!playerItems.containsKey(player.getUniqueId())) {
-            ItemStack headItem = player.getInventory().getItem(EquipmentSlot.HEAD);
-            if(isOverlayItem(headItem)) {
-                headItem = new ItemStack(Material.AIR);
-            }
-            playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
+            playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
             setCameraOverlay(player);
             //sendChat(player); -> moved inside setCameraOverlay
             sendActionBar(player);
@@ -236,7 +232,7 @@ public abstract class Room {
             fixedPlayers.add(player.getUniqueId());
             if(!playerItems.containsKey(player.getUniqueId())) {
 //Logger.getGlobal().info("Not in Room, setting overlay");
-                playerItems.put(player.getUniqueId(), player.getInventory().getItem(EquipmentSlot.HEAD));
+                playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
                 setCameraOverlay(player);
                 //sendChat(player); -> moved inside setCameraOverlay
             }
@@ -248,6 +244,27 @@ public abstract class Room {
                 playerItems.remove(player.getUniqueId());
             }
         }
+    }
+
+    /**
+     * Decides which item to give back when the camera overlay comes off the player's head again.
+     * <p>
+     * Called just before the overlay item replaces what the player wears, by both
+     * {@link #handleEnter} and {@link #handleOverride}. Usually that is the player's own helmet,
+     * or nothing. But an overlay item can be left on a player's head, for example when the server
+     * stops while they are in a room. Handing that back would leave them wearing it for good.
+     * <p>
+     * A leftover is recognised by its camera overlay, so it is only caught while that overlay is
+     * still one the rooms use in config.yml.
+     *
+     * @param currentHead what the player wears now: never null, an AIR stack when the slot is empty
+     * @return the item to put back on the player's head later; AIR for a leftover overlay item
+     */
+    ItemStack headItemToRestore(ItemStack currentHead) {
+        if(isOverlayItem(currentHead)) {
+            return new ItemStack(Material.AIR);
+        }
+        return currentHead;
     }
 
     public boolean isFixed(Player player) {
