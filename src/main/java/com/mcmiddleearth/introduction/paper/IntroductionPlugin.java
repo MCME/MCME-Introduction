@@ -31,7 +31,8 @@ import java.util.List;
  *
  * @author Eriol_Eandur
  */
-public final class IntroductionPlugin extends JavaPlugin {
+// Not final: MockBukkit loads the plugin in tests by subclassing it.
+public class IntroductionPlugin extends JavaPlugin {
 
     private static IntroductionPlugin instance;
 
