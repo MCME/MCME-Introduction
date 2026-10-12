@@ -1,0 +1,12 @@
+name: '${plugin.name}'
+version: '${plugin.version}'
+main: com.mcmiddleearth.introduction.paper.IntroductionPlugin
+api-version: '26.2'
+authors: [ ${plugin.author} ]
+depend: [ MCME-Architect, ViaVersion, ProtocolLib ]
+description: ${plugin.description}
+
+permissions:
+  introduction.reload:
+    default: op
+    description: allows to reload plugin data.

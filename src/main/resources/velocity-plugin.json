@@ -1,0 +1,15 @@
+{
+  "id":"${plugin.id}",
+  "name":"${plugin.name}",
+  "version":"${plugin.version}",
+  "url":"${plugin.url}",
+  "description":"${plugin.description}",
+  "authors":["${plugin.author}"],
+  "dependencies":[
+    {
+      "id": "vpacketevents",
+      "optional": false
+    }
+  ],
+  "main":"com.mcmiddleearth.introduction.velocity.IntroductionPlugin"
+}
