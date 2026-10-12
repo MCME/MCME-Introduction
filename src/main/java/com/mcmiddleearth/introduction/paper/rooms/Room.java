@@ -183,6 +183,8 @@ public abstract class Room {
             sendAdvancement(player);
             // Leaving the previous room scheduled giving chat back; the player is in a room again.
             RoomListener.cancelAllUnsilenceTasks(player);
+            // Tips belong after the rooms; leaving the last room starts them anew.
+            IntroductionChain.interruptChain(player);
             silence(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
@@ -199,6 +201,7 @@ public abstract class Room {
                 sendActionBar(player);
                 sendAdvancement(player);
                 RoomListener.cancelAllUnsilenceTasks(player);
+                IntroductionChain.interruptChain(player);
                 silence(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
