@@ -108,7 +108,7 @@ public abstract class Room {
 //Logger.getGlobal().info("Load: "+this);
         if(!advancementDisplay.equals(Room.TestDisplay.getAdvancementTestDisplay)) {
 //Logger.getGlobal().info("Load: "+advancementKey);
-            advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
+            advancement = IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey),
                     "{\"display\":" + advancementDisplay + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
         } else {
             advancement = null;
@@ -133,11 +133,17 @@ public abstract class Room {
     }
 
     public void unload() {
-//Logger.getGlobal().info("Unload: "+this);
+        // The advancement stays registered: the next Room with this key picks it up again.
+        // See removeAdvancement().
+    }
+
+    /**
+     * Deletes the advancement's file, so the next start registers it anew from config.yml.
+     * Paper keeps it registered until the server stops.
+     */
+    public void removeAdvancement() {
         if(advancement != null) {
-//Logger.getGlobal().info("Unload: "+advancementKey);
             Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey));
-//Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString(advancementKey)));
         }
     }
 

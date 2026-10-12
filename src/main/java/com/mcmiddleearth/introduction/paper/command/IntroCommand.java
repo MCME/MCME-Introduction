@@ -22,7 +22,6 @@ public class IntroCommand {
                         .executes(ctx -> {
                             IntroductionPlugin.getInstance().unloadData();
                             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                                Bukkit.getServer().reloadData();
                                 IntroductionPlugin.getInstance().reloadConfig();
                                 IntroductionPlugin.getInstance().loadData();
                             },20);
