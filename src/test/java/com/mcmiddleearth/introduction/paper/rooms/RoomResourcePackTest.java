@@ -3,8 +3,10 @@ package com.mcmiddleearth.introduction.paper.rooms;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.PluginTestBase;
+import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.junit.jupiter.api.AfterEach;
@@ -72,6 +74,31 @@ class RoomResourcePackTest extends PluginTestBase {
         assertWelcomeText(player.nextComponentMessage());
         server.getScheduler().performTicks(400);
         assertNull(player.nextComponentMessage(), "the welcome text comes once");
+    }
+
+    @Test
+    void withoutAResourcePackThePlayerStaysInTheCompatibilityRoom() {
+        // The second room picks its overlay and text by client brand, which PlayerMock does not implement.
+        PlayerMock vanilla = new PlayerMock(server, "Newcomer") {
+            @Override
+            public String getClientBrandName() {
+                return "vanilla";
+            }
+        };
+        server.addPlayer(vanilla);
+        plugin.getFirst().handleEnter(vanilla);
+        plugin.getFirst().handleExit(vanilla, true);
+        plugin.getSecond().handleEnter(vanilla);
+
+        server.getScheduler().performTicks(1200);
+
+        assertEquals(GameMode.SPECTATOR, vanilla.getGameMode(), "still in a room after 60 s");
+        assertTrue(ChatPacketListener.isBlocked(vanilla.getUniqueId(), null), "chat still hidden after 60 s");
+        Component warning = vanilla.nextComponentMessage();
+        assertNotNull(warning, "the version warning was sent");
+        assertTrue(PlainTextComponentSerializer.plainText().serialize(warning).contains("/confirm ignore"));
+        assertNull(vanilla.nextComponentMessage(), "the warning comes once");
+        plugin.getSecond().handleExit(vanilla, false);
     }
 
     private static void assertWelcomeText(Component message) {
