@@ -26,6 +26,7 @@ import org.bukkit.scheduler.BukkitTask;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.*;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 public abstract class Room {
@@ -62,6 +63,10 @@ public abstract class Room {
     private final Component rpInvalidUrlMessage;
 
     protected static final Set<NamespacedKey> overlays = new HashSet<>();
+
+    // Where the rooms read a player's resource-pack status: MCME-Architect's RpManager. Tests replace
+    // it, because RpManager cannot even be loaded without a running MCME-Architect.
+    static Function<Player, RpPlayerData> rpPlayerData = RpManager::getPlayerData;
 
     public Room(ConfigurationSection config, @Nullable ConfigurationSection locationConfig) {
         String worldName = (locationConfig!=null?locationConfig.getString("world"):null);
@@ -176,6 +181,8 @@ public abstract class Room {
             //sendChat(player); -> moved inside setCameraOverlay
             sendActionBar(player);
             sendAdvancement(player);
+            // Leaving the previous room scheduled giving chat back; the player is in a room again.
+            RoomListener.cancelAllUnsilenceTasks(player);
             silence(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
@@ -335,7 +342,7 @@ public abstract class Room {
             @Override
             public void run() {
 //Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
-                RpPlayerData data = RpManager.getPlayerData(player);
+                RpPlayerData data = rpPlayerData.apply(player);
                 if(isRpLoaded(data)) {
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
                     sendChat(player);

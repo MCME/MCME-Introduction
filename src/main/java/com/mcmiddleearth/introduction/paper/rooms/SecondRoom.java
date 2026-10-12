@@ -187,7 +187,7 @@ public class SecondRoom extends Room {
                     cancel();
                     return;
                 }
-                if (isRpLoaded(RpManager.getPlayerData(player)) ){ //!IntroductionPlugin.getInstance().isInsideRoom(player)) {
+                if (isRpLoaded(rpPlayerData.apply(player)) ){ //!IntroductionPlugin.getInstance().isInsideRoom(player)) {
                     handleOverride(player, true);
                     startStopReminderTask(player);
                 }
@@ -217,9 +217,9 @@ public class SecondRoom extends Room {
                     return;
                 }
                 attempts++;
-                RpPlayerData data = RpManager.getPlayerData(player);
+                RpPlayerData data = rpPlayerData.apply(player);
                 if(rpLoadTime == -1) {
-                    if (isRpLoaded(RpManager.getPlayerData(player))) {
+                    if (isRpLoaded(rpPlayerData.apply(player))) {
                         rpLoadTime = Bukkit.getServer().getCurrentTick();
                     }
                 } else if(isRpFail(data)) {

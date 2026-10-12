@@ -45,7 +45,7 @@ public class ChatPacketListener extends PacketAdapter {
      *
      * @param messageJson the message as JSON, or null when the packet holds no readable message
      */
-    static boolean isBlocked(UUID uuid, String messageJson) {
+    public static boolean isBlocked(UUID uuid, String messageJson) {
         return silenced.contains(uuid)
                 && !(messageJson != null && messageJson.contains(IntroductionPlugin.CHANNEL));
     }
