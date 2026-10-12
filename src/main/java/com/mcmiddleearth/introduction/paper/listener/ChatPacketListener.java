@@ -17,11 +17,13 @@ public class ChatPacketListener extends PacketAdapter {
 
     private static final Set<UUID> silenced = new HashSet<>();
 
+    // Only system chat. Since 1.21.5 the client numbers the player chat messages (Play.Server.CHAT)
+    // it receives and disconnects when one is missing, so dropping one disconnects the player at
+    // the next. Chat plugins such as VentureChat send their messages as system chat.
     public ChatPacketListener() {
         super(IntroductionPlugin.getInstance(),
                 ListenerPriority.NORMAL,
-                PacketType.Play.Server.SYSTEM_CHAT,
-                PacketType.Play.Server.CHAT);
+                PacketType.Play.Server.SYSTEM_CHAT);
     }
 
     @Override
@@ -30,7 +32,7 @@ public class ChatPacketListener extends PacketAdapter {
 
         if (silenced.contains(uuid)) {
             // readSafely returns null both when the packet has no chat component field and when
-            // the field is empty, as it usually is for player chat. read(0) threw or returned null.
+            // the field is empty, where read(0) would throw or return null.
             WrappedChatComponent comp = event.getPacket().getChatComponents().readSafely(0);
             String message = (comp != null ? comp.getJson() : null);
             if (isBlocked(uuid, message)) {
@@ -45,7 +47,7 @@ public class ChatPacketListener extends PacketAdapter {
      *
      * @param messageJson the message as JSON, or null when the packet holds no readable message
      */
-    static boolean isBlocked(UUID uuid, String messageJson) {
+    public static boolean isBlocked(UUID uuid, String messageJson) {
         return silenced.contains(uuid)
                 && !(messageJson != null && messageJson.contains(IntroductionPlugin.CHANNEL));
     }

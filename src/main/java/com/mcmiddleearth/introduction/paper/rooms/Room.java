@@ -26,6 +26,7 @@ import org.bukkit.scheduler.BukkitTask;
 import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.*;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 public abstract class Room {
@@ -62,6 +63,10 @@ public abstract class Room {
     private final Component rpInvalidUrlMessage;
 
     protected static final Set<NamespacedKey> overlays = new HashSet<>();
+
+    // Where the rooms read a player's resource-pack status: MCME-Architect's RpManager. Tests replace
+    // it, because RpManager cannot even be loaded without a running MCME-Architect.
+    static Function<Player, RpPlayerData> rpPlayerData = RpManager::getPlayerData;
 
     public Room(ConfigurationSection config, @Nullable ConfigurationSection locationConfig) {
         String worldName = (locationConfig!=null?locationConfig.getString("world"):null);
@@ -108,7 +113,7 @@ public abstract class Room {
 //Logger.getGlobal().info("Load: "+this);
         if(!advancementDisplay.equals(Room.TestDisplay.getAdvancementTestDisplay)) {
 //Logger.getGlobal().info("Load: "+advancementKey);
-            advancement = Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey),
+            advancement = IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey),
                     "{\"display\":" + advancementDisplay + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
         } else {
             advancement = null;
@@ -133,11 +138,17 @@ public abstract class Room {
     }
 
     public void unload() {
-//Logger.getGlobal().info("Unload: "+this);
+        // The advancement stays registered: the next Room with this key picks it up again.
+        // See removeAdvancement().
+    }
+
+    /**
+     * Deletes the advancement's file, so the next start registers it anew from config.yml.
+     * Paper keeps it registered until the server stops.
+     */
+    public void removeAdvancement() {
         if(advancement != null) {
-//Logger.getGlobal().info("Unload: "+advancementKey);
             Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey));
-//Logger.getGlobal().info("intro: "+Bukkit.getAdvancement(NamespacedKey.fromString(advancementKey)));
         }
     }
 
@@ -170,6 +181,10 @@ public abstract class Room {
             //sendChat(player); -> moved inside setCameraOverlay
             sendActionBar(player);
             sendAdvancement(player);
+            // Leaving the previous room scheduled giving chat back; the player is in a room again.
+            RoomListener.cancelAllUnsilenceTasks(player);
+            // Tips belong after the rooms; leaving the last room starts them anew.
+            IntroductionChain.interruptChain(player);
             silence(player);
             playerGamemodes.put(player.getUniqueId(), player.getGameMode());
             player.setGameMode(GameMode.SPECTATOR);
@@ -186,6 +201,7 @@ public abstract class Room {
                 sendActionBar(player);
                 sendAdvancement(player);
                 RoomListener.cancelAllUnsilenceTasks(player);
+                IntroductionChain.interruptChain(player);
                 silence(player);
                 playerGamemodes.put(player.getUniqueId(), player.getGameMode());
                 player.setGameMode(GameMode.SPECTATOR);
@@ -322,18 +338,31 @@ public abstract class Room {
 
     public abstract NamespacedKey selectCameraOverlay(Player player);
 
+    // The overlay task checks the resource pack every 10 ticks: 20 checks are 10 seconds.
+    private static final int NO_PACK_CHAT_ATTEMPTS = 20;
+
     private void startOverlayTask(Player player, ItemStack overlayItem) {
         stopOverlayTask(player);
         BukkitTask task = new BukkitRunnable() {
             int attempts = 0;
+            boolean chatSent = false;
             @Override
             public void run() {
 //Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
-                RpPlayerData data = RpManager.getPlayerData(player);
+                RpPlayerData data = rpPlayerData.apply(player);
                 if(isRpLoaded(data)) {
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
-                    sendChat(player);
+                    if(!chatSent) {
+                        sendChat(player);
+                    }
                     cancel();
+                }
+                else if(!chatSent && attempts >= NO_PACK_CHAT_ATTEMPTS
+                        && data.getCurrentRpStatus().equals(RpPlayerStatus.NOT_SENT)) {
+                    // Still no resource pack offered: no overlay without it, but the room's chat text
+                    // tells the player what to do. Keep waiting for a pack for the overlay.
+                    sendChat(player);
+                    chatSent = true;
                 }
                 else if(isRpFail(data)) {
                     stopOverlayTask(player);
@@ -481,6 +510,11 @@ public abstract class Room {
 
     public void unSilence(Player player) {
         ChatPacketListener.unSilence(player);
+        // At shutdown onDisable takes players out of the rooms, but Paper has disabled the plugin
+        // already and refuses plugin messages from it: the proxy can't be told then.
+        if(!IntroductionPlugin.getInstance().isEnabled()) {
+            return;
+        }
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
         out.writeUTF("exit");
         out.writeUTF(player.getUniqueId().toString());

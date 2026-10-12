@@ -17,6 +17,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.advancement.Advancement;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -74,6 +76,10 @@ public class IntroductionPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Delete the advancement files, so the next start registers the advancements anew from config.yml.
+        first.removeAdvancement();
+        second.removeAdvancement();
+        IntroductionChain.removeAdvancements();
         unloadData();
     }
 
@@ -112,6 +118,17 @@ public class IntroductionPlugin extends JavaPlugin {
     }
 
     public static IntroductionPlugin getInstance(){return instance;}
+
+    /**
+     * Registers an advancement, or returns the one already registered under its key. Paper keeps a
+     * registered advancement until the server stops, and saves it as a file that the next start loads
+     * again unless onDisable deleted it. So after /intro reload, or at a start after a crash, the key
+     * can be taken already, and registering it again would fail.
+     */
+    public static Advancement loadAdvancement(NamespacedKey key, String advancement) {
+        Advancement registered = Bukkit.getAdvancement(key);
+        return (registered != null ? registered : Bukkit.getUnsafe().loadAdvancement(key, advancement));
+    }
 
     public Room getRoom(Location location) {
         if(first.isInside(location)) {

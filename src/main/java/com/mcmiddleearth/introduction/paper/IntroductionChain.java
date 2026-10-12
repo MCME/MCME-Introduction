@@ -69,7 +69,7 @@ public class IntroductionChain {
 //Logger.getGlobal().info("Key: "+key);
                 //NamespacedKey key2 = NamespacedKey.fromString(advancementKey + (char)(64+i));
 //Logger.getGlobal().info("Key2: "+key2);
-                advancements.add(Bukkit.getUnsafe().loadAdvancement(NamespacedKey.fromString(advancementKey + i),
+                advancements.add(IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey + i),
                         "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}"));
             }
         }
@@ -146,11 +146,16 @@ public class IntroductionChain {
     }
 
     public static void unload() {
+        // The advancements stay registered: load() picks them up again. See removeAdvancements().
+        advancements.clear();
+    }
+
+    /**
+     * Deletes the advancement files, so the next start registers them anew from config.yml.
+     * Paper keeps them registered until the server stops.
+     */
+    public static void removeAdvancements() {
         advancements.forEach(advancement ->
                 Bukkit.getUnsafe().removeAdvancement(advancement.getKey()));
-        for(int i = 0; i < advancements.size(); i++) {
-            Bukkit.getUnsafe().removeAdvancement(NamespacedKey.fromString(advancementKey+i));
-        }
-        advancements.clear();
     }
 }
