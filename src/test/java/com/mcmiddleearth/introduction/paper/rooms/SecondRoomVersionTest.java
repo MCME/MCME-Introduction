@@ -44,14 +44,25 @@ class SecondRoomVersionTest extends PluginTestBase {
     }
 
     @Test
-    void withoutAListOnlyTheServersOwnVersionIsSupported() {
+    void aConfigWithoutTheListGetsTheShippedList() {
+        // Bukkit uses the config.yml inside the jar as defaults, and it lists 26.2 and 26.3.
         plugin.getConfig().set("supportedVersions", null);
         SecondRoom room = reloadedSecondRoom();
+
+        assertTrue(room.isSupportedVersion(ProtocolVersion.v26_2));
+        assertTrue(room.isSupportedVersion(ProtocolVersion.v26_3));
+        assertFalse(room.isSupportedVersion(ProtocolVersion.v1_21_4));
+    }
+
+    @Test
+    void anEmptyListSupportsOnlyTheServersOwnVersion() {
+        SecondRoom room = secondRoomSupporting();
         ProtocolVersion serverVersion = ProtocolVersion.getClosest(server.getMinecraftVersion());
         assertNotNull(serverVersion, "ViaVersion knows the server version " + server.getMinecraftVersion());
+        ProtocolVersion otherVersion = (serverVersion == ProtocolVersion.v26_3 ? ProtocolVersion.v26_2 : ProtocolVersion.v26_3);
 
         assertTrue(room.isSupportedVersion(serverVersion));
-        assertFalse(room.isSupportedVersion(ProtocolVersion.v1_21_4));
+        assertFalse(room.isSupportedVersion(otherVersion));
     }
 
     @Test
