@@ -11,6 +11,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.util.function.Function;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,6 +62,16 @@ class RoomSilenceTest extends PluginTestBase {
 
         assertTrue(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat hidden in the second room");
         plugin.getSecond().handleExit(player, false);
+    }
+
+    @Test
+    void theServerStopsCleanlyWithAPlayerInARoom() {
+        plugin.getFirst().handleEnter(player);
+
+        // Paper disables the plugin before onDisable runs; onDisable takes the player out of the room.
+        assertDoesNotThrow(() -> server.getPluginManager().disablePlugin(plugin));
+
+        assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back after the shutdown");
     }
 
     @Test

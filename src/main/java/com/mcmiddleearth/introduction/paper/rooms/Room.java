@@ -494,6 +494,11 @@ public abstract class Room {
 
     public void unSilence(Player player) {
         ChatPacketListener.unSilence(player);
+        // At shutdown onDisable takes players out of the rooms, but Paper has disabled the plugin
+        // already and refuses plugin messages from it: the proxy can't be told then.
+        if(!IntroductionPlugin.getInstance().isEnabled()) {
+            return;
+        }
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
         out.writeUTF("exit");
         out.writeUTF(player.getUniqueId().toString());
