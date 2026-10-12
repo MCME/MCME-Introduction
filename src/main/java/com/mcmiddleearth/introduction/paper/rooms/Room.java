@@ -335,18 +335,31 @@ public abstract class Room {
 
     public abstract NamespacedKey selectCameraOverlay(Player player);
 
+    // The overlay task checks the resource pack every 10 ticks: 20 checks are 10 seconds.
+    private static final int NO_PACK_CHAT_ATTEMPTS = 20;
+
     private void startOverlayTask(Player player, ItemStack overlayItem) {
         stopOverlayTask(player);
         BukkitTask task = new BukkitRunnable() {
             int attempts = 0;
+            boolean chatSent = false;
             @Override
             public void run() {
 //Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
                 RpPlayerData data = rpPlayerData.apply(player);
                 if(isRpLoaded(data)) {
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
-                    sendChat(player);
+                    if(!chatSent) {
+                        sendChat(player);
+                    }
                     cancel();
+                }
+                else if(!chatSent && attempts >= NO_PACK_CHAT_ATTEMPTS
+                        && data.getCurrentRpStatus().equals(RpPlayerStatus.NOT_SENT)) {
+                    // Still no resource pack offered: no overlay without it, but the room's chat text
+                    // tells the player what to do. Keep waiting for a pack for the overlay.
+                    sendChat(player);
+                    chatSent = true;
                 }
                 else if(isRpFail(data)) {
                     stopOverlayTask(player);
