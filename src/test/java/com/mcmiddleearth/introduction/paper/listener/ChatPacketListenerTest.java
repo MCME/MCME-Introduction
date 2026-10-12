@@ -1,11 +1,15 @@
 package com.mcmiddleearth.introduction.paper.listener;
 
+import com.comphenix.protocol.PacketType;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.PluginTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,8 +37,20 @@ class ChatPacketListenerTest extends PluginTestBase {
     }
 
     @Test
+    void onlySystemChatIsHidden() {
+        // Since 1.21.5 the client numbers the player chat messages it receives and disconnects on a
+        // gap, so dropping one disconnects the player at the next. System chat carries no number.
+        Set<PacketType> types = new ChatPacketListener().getSendingWhitelist().getTypes();
+
+        // (PacketType.toString needs Minecraft's classes, so no assertion may print a type.)
+        assertFalse(types.contains(PacketType.Play.Server.CHAT), "listens to player chat");
+        assertTrue(types.contains(PacketType.Play.Server.SYSTEM_CHAT), "listens to system chat");
+        assertEquals(1, types.size(), "packet types listened to");
+    }
+
+    @Test
     void chatWithoutAReadableMessageIsBlockedForSilencedPlayers() {
-        // Player chat packets usually carry no unsigned component, so the listener reads null.
+        // When the listener can't read the message, it can't be one of the plugin's own.
         assertTrue(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), null));
     }
 
