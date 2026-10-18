@@ -93,7 +93,9 @@ do not.
 | `invalid_url` | The pack's URL was invalid. | yes |
 | `timeout` | No result after about 250 seconds. | yes |
 
-A player who leaves the room before a final result gets no further `pack` event for it.
+A player who leaves the room before a final result gets no further `pack` event for it. A player who
+enters a room while a reminder's screen is still on (within `reminderDuration` of a reminder) gets
+no `pack` event for that visit.
 
 ### Ways out of a room
 
@@ -110,6 +112,12 @@ A player who leaves the room before a final result gets no further `pack` event 
 
 - **Count players, not events.** One player can have many events of one kind: an `enter` for each
   session that starts in a room, a `reminder` every `reminderPeriod`.
+- **Events are in the order things happened**, not in the order of a story. Stepping left records
+  the `skip` of a room passed over at once, and the `exit` after the black screen; a `confirm` comes
+  before the `exit` it causes.
+- **Nothing follows a player's `quit`** until they join again. A player who quits during the black
+  screen stays in the room they stepped out of: their `exit` is the `quit`, and they come back to that
+  room.
 - **Two `start` events without a `stop` between them** mean the server stopped without a clean
   shutdown: the players who were in a room then have no `exit`.
 - **Where a player gave up**: their last `exit` with `how: quit`, and its `room`. The `enter` before it

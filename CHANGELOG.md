@@ -15,7 +15,10 @@
 - A player who joined standing in the compatibility room, with a client that no longer needs it,
   was passed on twice: the black screen and the welcome title came twice and the tips started over.
 - That player's system chat also stayed hidden afterwards, on the server and on the proxy.
-- A player who left the server within the join delay was still put in the room.
+- A player who left the server within the join delay was still put in the room. Other delayed steps
+  also carried on with a player who had left: a quit during the black screen still started the tips
+  (and the "just joined" broadcast), and reminders still ran for them.
+- A pack that loaded at a room's last check also sent the time-out message.
 
 ## [1.3.0] - 2026-10-12
 
