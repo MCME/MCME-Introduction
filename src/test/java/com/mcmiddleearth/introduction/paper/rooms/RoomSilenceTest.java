@@ -4,6 +4,7 @@ import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -98,5 +99,19 @@ class RoomSilenceTest extends RoomTestBase {
         server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + TELEPORT_DELAY + UNSILENCE_DELAY + 20);
 
         assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back after being passed on");
+    }
+
+    @Test
+    void chatComesBackForAPlayerMovedOutOfARoomWhileJoining() throws IOException {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        World world = addRooms();
+        player.setLocation(new Location(world, 22, 61, 2));
+        server.getPluginManager().callEvent(new PlayerConnectEvent(player, PlayerConnectEvent.ConnectReason.JOIN_PROXY));
+
+        // A teleport by staff, say, before the join delay is over.
+        player.teleport(new Location(world, 40, 61, 2));
+        server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + 1);
+
+        assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back outside the rooms");
     }
 }

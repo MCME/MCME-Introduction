@@ -226,12 +226,16 @@ public class SecondRoom extends Room {
 
     public void startReminderTask(Player player) {
 //Logger.getGlobal().info("start reminder task for "+player.getName());
-        if(isSkipped(player)) {
+        // Started with a delay, by leaving the room or by joining: the player can have left since.
+        if(!player.isOnline() || isSkipped(player)) {
             return;
         }
         cancelReminderTask(player);
         long reminderPeriod =  IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
-        FlowEvents.reminder(player, getWarning(player));
+        // In a room the room's own screen is on, and the reminder shows nothing.
+        if(!IntroductionPlugin.getInstance().isInsideRoom(player)) {
+            FlowEvents.reminder(player, getWarning(player));
+        }
         handleOverride(player, true);
         startStopReminderTask(player);
         BukkitTask task = new BukkitRunnable() {

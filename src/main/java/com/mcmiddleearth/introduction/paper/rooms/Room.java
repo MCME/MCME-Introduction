@@ -331,6 +331,12 @@ public abstract class Room {
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+            if (!player.isOnline()) {
+                // Quit during the black screen: quitting took the player out of the room already, and
+                // they stay where they were until they come back.
+                previous.awaitingTeleport.remove(player.getUniqueId());
+                return;
+            }
             previous.handleExit(player, true, how);
             //RoomListener.allowTeleportOut(player);
             player.teleport(tpTarget);
@@ -400,6 +406,8 @@ public abstract class Room {
                     }
                     recordPack("loaded");
                     cancel();
+                    // Done: not also timed out, when this was the last check.
+                    return;
                 }
                 else if(!chatSent && attempts >= NO_PACK_CHAT_ATTEMPTS
                         && data.getCurrentRpStatus().equals(RpPlayerStatus.NOT_SENT)) {
@@ -431,6 +439,7 @@ public abstract class Room {
                     } else {
                         IntroductionPlugin.sendErrorMessage(player, "Could not send overlay as your resource pack failed to load.");
                     }
+                    return;
                 }
                 attempts++;
                 if(attempts > 500) {

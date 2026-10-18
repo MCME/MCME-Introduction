@@ -217,6 +217,72 @@ class RoomFlowLogTest extends RoomTestBase {
     }
 
     @Test
+    void aPlayerWhoQuitsDuringTheBlackScreenIsNotTakenOn() {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        player.setLocation(new Location(world, 22, 61, 2));
+        plugin.getSecond().handleEnter(player);
+        RoomListener.teleportToNextRoom(plugin.getSecond(), player, Exit.WALKED);
+
+        player.disconnect();
+        server.getScheduler().performTicks(TELEPORT_DELAY + 1);
+
+        assertEquals("quit", single(events("exit")).get("how").getAsString());
+        assertTrue(events("finish").isEmpty(), "never got through the rooms");
+    }
+
+    @Test
+    void noReminderComesForAPlayerWhoHasLeft() throws IOException {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        // Finished before: finishing sends no network broadcast, which would need MCME-Connect.
+        finishedBefore();
+        player.setLocation(new Location(world, 22, 61, 2));
+        plugin.getSecond().handleEnter(player);
+        RoomListener.teleportToNextRoom(plugin.getSecond(), player, Exit.WALKED);
+        server.getScheduler().performTicks(TELEPORT_DELAY + 1);
+
+        player.disconnect();
+        server.getScheduler().performTicks(plugin.getConfig().getLong("reminderPeriod") + 10);
+
+        assertTrue(events("reminder").isEmpty());
+    }
+
+    @Test
+    void aPlayerWhoQuitsRightAfterMovingIntoARoomIsNotPutInIt() {
+        player.teleport(new Location(world, 2, 61, 2));
+
+        player.disconnect();
+        server.getScheduler().performTicks(5);
+
+        assertTrue(events("enter").isEmpty());
+    }
+
+    @Test
+    void aConfirmResetInARoomShowsNoReminder() {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        server.dispatchCommand(server.getConsoleSender(), "help");
+        player.setLocation(new Location(world, 22, 61, 2));
+        plugin.getSecond().handleEnter(player);
+
+        player.performCommand("confirm reset");
+
+        assertTrue(single(events("confirm")).get("inRoom").getAsBoolean());
+        assertTrue(events("reminder").isEmpty(), "the room's own screen is on");
+    }
+
+    @Test
+    void aPackThatLoadsAtTheLastCheckIsNotAlsoTimedOut() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SENT);
+        plugin.getFirst().handleEnter(player);
+        // The room checks every 10 ticks and gives up after its 500th check.
+        server.getScheduler().performTicks(4991);
+
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        server.getScheduler().performTicks(10);
+
+        assertEquals(List.of("loaded"), events("pack").stream().map(e -> e.get("result").getAsString()).toList());
+    }
+
+    @Test
     void aPlayerInTheCompatibilityRoomWhoNeedNotBeThereLeavesItSkipped() {
         SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
         player.setLocation(new Location(world, 22, 61, 2));
@@ -233,10 +299,7 @@ class RoomFlowLogTest extends RoomTestBase {
 
     @Test
     void finishingAgainIsRecordedAsNotTheFirstTime() throws IOException {
-        Files.writeString(new File(plugin.getDataFolder(), "finishedPlayerList.uid").toPath(),
-                player.getUniqueId() + System.lineSeparator());
-        plugin.unloadData();
-        plugin.loadData();
+        finishedBefore();
 
         IntroductionChain.startChain(player);
 
@@ -356,6 +419,14 @@ class RoomFlowLogTest extends RoomTestBase {
         JsonObject exit = single(events("exit"));
         assertEquals("compatibility", exit.get("room").getAsString());
         assertEquals("confirmed", exit.get("how").getAsString());
+    }
+
+    /** Puts the player on the list of players who finished the introduction before. */
+    private void finishedBefore() throws IOException {
+        Files.writeString(new File(plugin.getDataFolder(), "finishedPlayerList.uid").toPath(),
+                player.getUniqueId() + System.lineSeparator());
+        plugin.unloadData();
+        plugin.loadData();
     }
 
     private File flowFolder() {

@@ -104,10 +104,15 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             toRoom.setPlayerEnterTime(player.getUniqueId());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                 () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
                     player.teleport(toRoom.getPlayerLocation());
                     Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                         () -> {
-                            handlePlayerMove(event);
+                            if (player.isOnline()) {
+                                handlePlayerMove(event);
+                            }
                         }, 1);
                 },1);
             return true;
@@ -166,9 +171,15 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             room.silence(event.getPlayer());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Player player = event.getPlayer();
-                // Gone again, or passed on already: turning the head is a move, and a move in a room
-                // passes on a player who need not be there.
-                if (!player.isOnline() || !room.isInside(player.getLocation()) || room.isAwaitingTeleport(player)) {
+                // Turning the head is a move, and a move in a room passes on a player who need not be
+                // there: this one can be on their way out already.
+                if (!player.isOnline() || room.isAwaitingTeleport(player)) {
+                    return;
+                }
+                if (!room.isInside(player.getLocation())) {
+                    // Out of the room before the delay was over: passed on, or moved out some other way.
+                    // Joining in the room hid their chat.
+                    room.unSilence(player);
                     return;
                 }
                 if (room.isSkipped(player)) {
@@ -181,6 +192,9 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Room second = IntroductionPlugin.getInstance().getSecond();
                 Player player = event.getPlayer();
+                if (!player.isOnline()) {
+                    return;
+                }
                 ((SecondRoom)second).startReminderTask(player);
                 IntroductionChain.continueChain(player);
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
