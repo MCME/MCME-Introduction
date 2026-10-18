@@ -145,15 +145,16 @@ public final class FlowLog {
     }
 
     private void write(LocalDate day, String line) {
+        // Once a day, and before the event, which is written whether the clean-up worked or not.
+        if(!day.equals(cleanedUpOn)) {
+            cleanedUpOn = day;
+            deleteOldDays(day);
+        }
         try {
             Files.createDirectories(folder);
-            if(!day.equals(cleanedUpOn)) {
-                deleteOldDays(day);
-                cleanedUpOn = day;
-            }
             Files.writeString(folder.resolve(day + ".jsonl"), line + "\n", StandardCharsets.UTF_8, CREATE, APPEND);
             writeFailing = false;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             // Once per failing spell, not once per event.
             if(!writeFailing) {
                 logger.warning("Flow log: could not write to " + folder + ": " + e);
@@ -162,8 +163,8 @@ public final class FlowLog {
         }
     }
 
-    private void deleteOldDays(LocalDate today) throws IOException {
-        if(keepDays <= 0) {
+    private void deleteOldDays(LocalDate today) {
+        if(keepDays <= 0 || !Files.isDirectory(folder)) {
             return;
         }
         LocalDate oldestKept = today.minusDays(keepDays);
@@ -171,9 +172,20 @@ public final class FlowLog {
             for(Path file : files) {
                 Matcher name = DAY_FILE.matcher(file.getFileName().toString());
                 if(name.matches() && isBefore(name.group(1), oldestKept)) {
-                    Files.deleteIfExists(file);
+                    delete(file);
                 }
             }
+        } catch (IOException | RuntimeException e) {
+            logger.warning("Flow log: could not look for old days in " + folder + ": " + e);
+        }
+    }
+
+    // A file a reader holds open, for one, cannot be deleted on every system: it waits for the next day.
+    private void delete(Path file) {
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            logger.warning("Flow log: could not delete " + file.getFileName() + ": " + e);
         }
     }
 

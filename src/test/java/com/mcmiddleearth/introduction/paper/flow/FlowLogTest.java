@@ -124,6 +124,23 @@ class FlowLogTest {
     }
 
     @Test
+    void anOldDayThatCannotBeDeletedDoesNotStopTheLog() throws IOException {
+        // A folder with a day file's name cannot be deleted while it holds something.
+        Path stuck = Files.createDirectories(folder.resolve("2026-07-19.jsonl"));
+        Files.writeString(stuck.resolve("inside"), "x");
+        Files.writeString(folder.resolve("2026-07-18.jsonl"), "{}\n");
+        FlowLog log = openLog(90);
+
+        log.log("enter", PLAYER, e -> {});
+        log.log("exit", PLAYER, e -> {});
+
+        Path today = folder.resolve("2026-10-18.jsonl");
+        assertTrue(Files.exists(today), "today's file was written");
+        assertEquals(List.of("enter", "exit"), eventNames(today));
+        assertFalse(Files.exists(folder.resolve("2026-07-18.jsonl")), "the other old day is deleted");
+    }
+
+    @Test
     void keepDaysZeroKeepsEveryDay() throws IOException {
         Files.writeString(folder.resolve("2020-01-01.jsonl"), "{}\n");
         FlowLog log = openLog(0);
