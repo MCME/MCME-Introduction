@@ -55,6 +55,11 @@ public class FirstRoom extends Room {
     }
 
     @Override
+    public String getFlowName() {
+        return "welcome";
+    }
+
+    @Override
     public void sendChat(Player player) {
         player.sendMessage(messageWelcome);
     }

@@ -7,6 +7,8 @@ import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import net.kyori.adventure.text.Component;
@@ -25,6 +27,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -47,6 +50,8 @@ public abstract class Room {
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
     private final Set<UUID> fixedPlayers = new HashSet<>();
     private final Map<UUID, Integer> playerEnterTimes = new HashMap<>();
+    // When each player in the room was put in it, for the flow log.
+    private final Map<UUID, Instant> enteredAt = new HashMap<>();
 
     private final Set<UUID> awaitingTeleport = new HashSet<>();
 
@@ -176,8 +181,9 @@ public abstract class Room {
         IntroductionPlugin.getInstance().getFirst().handleOverride(player, false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(player, false);
         if(!playerItems.containsKey(player.getUniqueId())) {
+            recordEnter(player);
             playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
-            setCameraOverlay(player);
+            setCameraOverlay(player, true);
             //sendChat(player); -> moved inside setCameraOverlay
             sendActionBar(player);
             sendAdvancement(player);
@@ -197,6 +203,7 @@ public abstract class Room {
             return true;
         } else {
             if(!playerGamemodes.containsKey(player.getUniqueId())) {
+                recordEnter(player);
                 sendChat(player);
                 sendActionBar(player);
                 sendAdvancement(player);
@@ -217,11 +224,29 @@ public abstract class Room {
         return false;
     }
 
-    public void handleExit(Player player, boolean delayUnSilence) {
+    private void recordEnter(Player player) {
+        enteredAt.put(player.getUniqueId(), Instant.now());
+        FlowEvents.enter(this, player);
+    }
+
+    /**
+     * Whether the player is in this room: put in it and not taken out again.
+     */
+    public boolean isEntered(Player player) {
+        return playerGamemodes.containsKey(player.getUniqueId());
+    }
+
+    /**
+     * Takes the player out of the room, if they are in it.
+     *
+     * @param how why the player leaves, for the flow log
+     */
+    public void handleExit(Player player, boolean delayUnSilence, Exit how) {
 //Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
 //Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
         if(playerGamemodes.containsKey(player.getUniqueId())) {
 //Logger.getGlobal().info("EXIT");
+            FlowEvents.exit(this, player, how, enteredAt.remove(player.getUniqueId()));
             //if(!fixedPlayers.contains(player.getUniqueId())) {
                 removeCameraOverlay(player);
                 playerItems.remove(player.getUniqueId());
@@ -251,7 +276,7 @@ public abstract class Room {
             if(!playerItems.containsKey(player.getUniqueId())) {
 //Logger.getGlobal().info("Not in Room, setting overlay");
                 playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
-                setCameraOverlay(player);
+                setCameraOverlay(player, false);
                 //sendChat(player); -> moved inside setCameraOverlay
             }
         } else {
@@ -289,7 +314,13 @@ public abstract class Room {
         return fixedPlayers.contains(player.getUniqueId());
     }
 
-    public void teleport(Player player, Room previous, Room next) {
+    /**
+     * Takes the player out of the previous room, after a black screen, and into the next room, or
+     * on to the tips after the last room.
+     *
+     * @param how why the player leaves the previous room, for the flow log
+     */
+    public void teleport(Player player, Room previous, Room next, Exit how) {
 //Logger.getGlobal().info("SET awaiting Teleport");
         previous.awaitingTeleport.add(player.getUniqueId());
 //Logger.getGlobal().info("test is awaiting: "+isAwaitingTeleport(player));
@@ -300,7 +331,7 @@ public abstract class Room {
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-            previous.handleExit(player, true);
+            previous.handleExit(player, true, how);
             //RoomListener.allowTeleportOut(player);
             player.teleport(tpTarget);
             previous.awaitingTeleport.remove(player.getUniqueId());
@@ -316,8 +347,14 @@ public abstract class Room {
         },Long.parseLong(tpTransitionTimes[0]));
     }
 
+    /**
+     * Puts the room's picture on the player's head once the resource pack has loaded.
+     *
+     * @param inRoom whether the player is entering the room, rather than getting a reminder;
+     *               only then does the pack's result go in the flow log
+     */
     @SuppressWarnings("UnstableApiUsage")
-    public void setCameraOverlay(Player player) {
+    private void setCameraOverlay(Player player, boolean inRoom) {
         ItemStack overlayItem = new ItemStack(Material.STONE);
         ItemMeta meta = overlayItem.getItemMeta();
         EquippableComponent equip = meta.getEquippable();
@@ -327,7 +364,7 @@ public abstract class Room {
         equip.setCameraOverlay(overlay);
         meta.setEquippable(equip);
         overlayItem.setItemMeta(meta);
-        startOverlayTask(player,overlayItem);
+        startOverlayTask(player,overlayItem, inRoom);
     }
 
     public void removeCameraOverlay(Player player) {
@@ -338,11 +375,17 @@ public abstract class Room {
 
     public abstract NamespacedKey selectCameraOverlay(Player player);
 
+    /**
+     * The room's name in the flow log: welcome or compatibility, as hub-flow names them.
+     */
+    public abstract String getFlowName();
+
     // The overlay task checks the resource pack every 10 ticks: 20 checks are 10 seconds.
     private static final int NO_PACK_CHAT_ATTEMPTS = 20;
 
-    private void startOverlayTask(Player player, ItemStack overlayItem) {
+    private void startOverlayTask(Player player, ItemStack overlayItem, boolean recordPack) {
         stopOverlayTask(player);
+        Instant waitingSince = Instant.now();
         BukkitTask task = new BukkitRunnable() {
             int attempts = 0;
             boolean chatSent = false;
@@ -355,6 +398,7 @@ public abstract class Room {
                     if(!chatSent) {
                         sendChat(player);
                     }
+                    recordPack("loaded");
                     cancel();
                 }
                 else if(!chatSent && attempts >= NO_PACK_CHAT_ATTEMPTS
@@ -363,11 +407,13 @@ public abstract class Room {
                     // tells the player what to do. Keep waiting for a pack for the overlay.
                     sendChat(player);
                     chatSent = true;
+                    recordPack("not_sent");
                 }
                 else if(isRpFail(data)) {
                     stopOverlayTask(player);
                     // pick message based on exact failure reason
                     RpPlayerStatus status = data.getCurrentRpStatus();
+                    recordPack(status.name().toLowerCase(Locale.ROOT));
                     Component msg;
                     if(status.equals(RpPlayerStatus.DECLINED)) {
                         msg = rpDeclinedMessage;
@@ -393,7 +439,14 @@ public abstract class Room {
                     } else {
                         IntroductionPlugin.sendErrorMessage(player, "Could not send overlay as your resource pack doesn't seem to load: Timed out.");
                     }
+                    recordPack("timeout");
                     stopOverlayTask(player);
+                }
+            }
+
+            private void recordPack(String result) {
+                if(recordPack) {
+                    FlowEvents.pack(Room.this, player, result, waitingSince);
                 }
             }
         }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 10L);

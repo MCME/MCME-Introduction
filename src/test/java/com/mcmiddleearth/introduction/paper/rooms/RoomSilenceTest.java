@@ -1,7 +1,7 @@
 package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
-import com.mcmiddleearth.introduction.paper.PluginTestBase;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A player in a room sees no chat. Leaving a room gives chat back after a short delay, unless the
  * player enters another room meanwhile.
  */
-class RoomSilenceTest extends PluginTestBase {
+class RoomSilenceTest extends RoomTestBase {
 
     // Room's default unsilenceDelay; the default config.yml does not set it.
     private static final int UNSILENCE_DELAY = 20;
@@ -56,12 +56,12 @@ class RoomSilenceTest extends PluginTestBase {
         plugin.getFirst().handleEnter(player);
 
         // What Room.teleport does when the player walks on: leave the first room, enter the next.
-        plugin.getFirst().handleExit(player, true);
+        plugin.getFirst().handleExit(player, true, Exit.WALKED);
         plugin.getSecond().handleEnter(player);
         server.getScheduler().performTicks(UNSILENCE_DELAY + 20);
 
         assertTrue(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat hidden in the second room");
-        plugin.getSecond().handleExit(player, false);
+        plugin.getSecond().handleExit(player, false, Exit.LEFT);
     }
 
     @Test
@@ -78,7 +78,7 @@ class RoomSilenceTest extends PluginTestBase {
     void chatComesBackAfterLeavingTheLastRoom() {
         plugin.getFirst().handleEnter(player);
 
-        plugin.getFirst().handleExit(player, true);
+        plugin.getFirst().handleExit(player, true, Exit.WALKED);
         server.getScheduler().performTicks(UNSILENCE_DELAY + 20);
 
         assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back after the rooms");

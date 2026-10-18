@@ -1,6 +1,7 @@
 package com.mcmiddleearth.introduction.paper;
 
 import com.mcmiddleearth.connect.util.ConnectUtil;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -77,6 +78,8 @@ public class IntroductionChain {
 
     public static void startChain(Player player) {
         interruptChain(player);
+        // The list gets the player with the broadcast, startBroadcastDelay later.
+        FlowEvents.finish(player, !finishedPlayers.contains(player.getUniqueId()));
         player.sendTitlePart(TitlePart.TITLE, (startTitle != null ? startTitle : Component.text("Welcome")));
         player.sendTitlePart(TitlePart.SUBTITLE, (startSubtitle != null ? startSubtitle : Component.text("to")
                 .append(Component.text("Minecraft Middle-earth").color(TextColor.fromCSSHexString("ffc13b")))));

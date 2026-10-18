@@ -3,6 +3,8 @@ package com.mcmiddleearth.introduction.paper.listener;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import org.bukkit.Bukkit;
@@ -68,7 +70,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 room.handleOverride(player, true);
             }
             //event.setCancelled(true);
-            teleportToNextRoom(room, player);
+            teleportToNextRoom(room, player, Exit.WALKED);
         }
     }
 
@@ -124,7 +126,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
              if(!room.isAwaitingTeleport(player)) {
                 //Logger.getGlobal().info("Is AWaiting teleport: "+room.isAwaitingTeleport(player));
                 if (room.isSkipped(player)) {
-                    teleportToNextRoom(room, player);
+                    passOn(room, player);
                     //Logger.getGlobal().info("TELEPORT TO NEXT ROOM");
                 } else {
                     if(!room.handleEnter(player)
@@ -150,7 +152,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 }
             }
         } else {
-            exitAllRooms(player);
+            exitAllRooms(player, Exit.LEFT);
         }
 
     }
@@ -164,7 +166,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             room.silence(event.getPlayer());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 if (room.isSkipped(event.getPlayer())) {
-                    teleportToNextRoom(room, event.getPlayer());
+                    passOn(room, event.getPlayer());
                 } else {
                     room.handleEnter(event.getPlayer());
                 }
@@ -183,7 +185,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     public void quitServer(PlayerQuitEvent event) {
         IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
-        exitAllRooms(event.getPlayer());
+        exitAllRooms(event.getPlayer(), Exit.QUIT);
         IntroductionChain.interruptChain(event.getPlayer());
         ((SecondRoom)IntroductionPlugin.getInstance().getSecond()).cancelReminderTask(event.getPlayer());
     }
@@ -218,22 +220,39 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         }
     }
 
-    public static void teleportToNextRoom(Room room, Player player) {
+    /**
+     * Sends the player on from a room they need not be in. A player who is not in the room yet,
+     * such as one who joins standing in it, was passed over it.
+     */
+    private static void passOn(Room room, Player player) {
+        if(!room.isEntered(player)) {
+            FlowEvents.skip(room, player);
+        }
+        teleportToNextRoom(room, player, Exit.SKIPPED);
+    }
+
+    /**
+     * Takes the player from a room to the next room they need, or on to the tips.
+     *
+     * @param how why the player leaves the room, for the flow log
+     */
+    public static void teleportToNextRoom(Room room, Player player, Exit how) {
         Room next = room.getNext();
         Room previous = room;
 //Logger.getGlobal().info("1 skipped: "+next+" "+next.isSkipped(player));
         while(next != null && next.isSkipped(player)) {
+            FlowEvents.skip(next, player);
             room = next;
             next = next.getNext();
 //Logger.getGlobal().info("2 skipped: "+next+" "+next.isSkipped(player));
         }
 //Logger.getGlobal().info(room+" Teleporting "+player.getName()+" from "+previous+" to "+next);
-        room.teleport(player, previous, next);
+        room.teleport(player, previous, next, how);
     }
 
-    public static void exitAllRooms(Player player) {
-        IntroductionPlugin.getInstance().getFirst().handleExit(player, false);
-        IntroductionPlugin.getInstance().getSecond().handleExit(player, false);
+    public static void exitAllRooms(Player player, Exit how) {
+        IntroductionPlugin.getInstance().getFirst().handleExit(player, false, how);
+        IntroductionPlugin.getInstance().getSecond().handleExit(player, false, how);
     }
 
     public static void cancelAllUnsilenceTasks(Player player) {
