@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.io.File;
@@ -212,6 +213,33 @@ class RoomFlowLogTest extends RoomTestBase {
         assertEquals("compatibility", skip.get("room").getAsString());
         assertTrue(skip.get("compatible").getAsBoolean());
         assertTrue(events("exit").isEmpty(), "the player was never put in the room");
+    }
+
+    @ParameterizedTest(name = "turning the head {0} ticks after joining")
+    @ValueSource(ints = {0, 5})
+    void aPlayerWhoLooksAroundWhileJoiningIsPassedOnOnce(int moveAfter) {
+        player.setLocation(new Location(world, 22, 61, 2));
+        server.getPluginManager().callEvent(new PlayerConnectEvent(player, PlayerConnectEvent.ConnectReason.JOIN_PROXY));
+        server.getScheduler().performTicks(moveAfter);
+
+        // Turning the head is a move too: the room passes the player on before the join delay is over.
+        player.simulatePlayerMove(new Location(world, 22, 61, 2, 90, 0));
+        server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + TELEPORT_DELAY + 1);
+
+        assertEquals(1, events("skip").size(), "passed over the room");
+        assertEquals(1, events("finish").size(), "the welcome title and the tips start");
+    }
+
+    @Test
+    void aPlayerWhoLeavesDuringTheJoinDelayIsNotPutInTheRoom() {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        player.setLocation(new Location(world, 22, 61, 2));
+        server.getPluginManager().callEvent(new PlayerConnectEvent(player, PlayerConnectEvent.ConnectReason.JOIN_PROXY));
+
+        player.disconnect();
+        server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + 1);
+
+        assertTrue(events("enter").isEmpty());
     }
 
     @Test

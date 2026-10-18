@@ -165,10 +165,16 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         if (room != null) {
             room.silence(event.getPlayer());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                if (room.isSkipped(event.getPlayer())) {
-                    passOn(room, event.getPlayer());
+                Player player = event.getPlayer();
+                // Gone again, or passed on already: turning the head is a move, and a move in a room
+                // passes on a player who need not be there.
+                if (!player.isOnline() || !room.isInside(player.getLocation()) || room.isAwaitingTeleport(player)) {
+                    return;
+                }
+                if (room.isSkipped(player)) {
+                    passOn(room, player);
                 } else {
-                    room.handleEnter(event.getPlayer());
+                    room.handleEnter(player);
                 }
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
          } else {
