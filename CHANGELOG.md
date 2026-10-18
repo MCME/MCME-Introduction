@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.0] - unreleased
+
+### Added
+- The flow log: a JSON line for each step a player takes through the rooms, in
+  `plugins/MCME-Introduction/flow/YYYY-MM-DD.jsonl`. It records entering a room (with the client's
+  version, brand, marker mod, and the warning shown), the resource pack's result and how long it
+  took, leaving a room (how, and after how long), being passed over a room, finishing, reminders and
+  `/confirm`. It is written for tools such as hub-flow; `docs/flow-log.md` describes it. On by
+  default: `flowLog.enabled` and `flowLog.keepDays` (90) in `config.yml`, where a file without them
+  gets these values.
+
+### Fixed
+- A player who joined standing in the compatibility room, with a client that no longer needs it,
+  was passed on twice: the black screen and the welcome title came twice and the tips started over.
+- That player's system chat also stayed hidden afterwards, on the server and on the proxy.
+- A player who left the server within the join delay was still put in the room. Other delayed steps
+  also carried on with a player who had left: a quit during the black screen still started the tips
+  (and the "just joined" broadcast), and reminders still ran for them.
+- A pack that loaded at a room's last check also sent the time-out message.
+
 ## [1.3.0] - 2026-10-12
 
 The 26.2 release. Tested on MCME's dev network in three rounds.

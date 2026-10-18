@@ -1,6 +1,6 @@
 package com.mcmiddleearth.introduction.paper.rooms;
 
-import com.mcmiddleearth.introduction.paper.PluginTestBase;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.EquipmentSlot;
@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * server stops while they are in a room. Such a leftover must not be handed back as if it were
  * the player's own item.
  */
-class RoomHeadItemTest extends PluginTestBase {
+class RoomHeadItemTest extends RoomTestBase {
 
     private PlayerMock player;
     private Room room;
@@ -43,7 +43,7 @@ class RoomHeadItemTest extends PluginTestBase {
         wear(new ItemStack(Material.DIAMOND_HELMET));
 
         room.handleEnter(player);
-        room.handleExit(player, false);
+        room.handleExit(player, false, Exit.LEFT);
 
         assertEquals(Material.DIAMOND_HELMET, head().getType());
     }
@@ -53,7 +53,7 @@ class RoomHeadItemTest extends PluginTestBase {
         wear(leftoverOverlay());
 
         room.handleEnter(player);
-        room.handleExit(player, false);
+        room.handleExit(player, false, Exit.LEFT);
 
         assertTrue(head().isEmpty(), "head after leaving the room: " + head());
     }
@@ -74,7 +74,7 @@ class RoomHeadItemTest extends PluginTestBase {
         wear(itemWithOverlay(Material.LEATHER_HELMET, "minecraft:misc/pumpkinblur"));
 
         room.handleEnter(player);
-        room.handleExit(player, false);
+        room.handleExit(player, false, Exit.LEFT);
 
         assertEquals(Material.LEATHER_HELMET, head().getType());
     }

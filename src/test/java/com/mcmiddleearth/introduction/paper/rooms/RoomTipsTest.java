@@ -2,7 +2,7 @@ package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
-import com.mcmiddleearth.introduction.paper.PluginTestBase;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.advancement.AdvancementProgress;
 import org.bukkit.entity.Player;
@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * After the rooms a player gets a sequence of tips, as advancement toasts. They belong after the
  * rooms: a player who enters a room again gets none while inside.
  */
-class RoomTipsTest extends PluginTestBase {
+class RoomTipsTest extends RoomTestBase {
 
     // The default config.yml shows the first tip 600 ticks after the start, then one every 600.
     private static final int FIRST_TIP = 600;
@@ -83,6 +83,6 @@ class RoomTipsTest extends PluginTestBase {
         server.getScheduler().performTicks(TIP_PERIOD * 3);
 
         assertEquals(List.of("mcme:introchain0"), tipsShown, "tips after entering a room");
-        plugin.getFirst().handleExit(player, false);
+        plugin.getFirst().handleExit(player, false, Exit.LEFT);
     }
 }

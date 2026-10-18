@@ -17,6 +17,13 @@ roomEnterMoveDelay: 5
 # server's own version is supported. <supported_versions> in a message shows this list.
 supportedVersions: ['26.2', '26.3']
 
+# The flow log: a line for each step a player takes through the rooms, in flow/<date>.jsonl in
+# this plugin's folder (one file per UTC day). docs/flow-log.md in the plugin's repository
+# describes it. Days older than keepDays are deleted; 0 keeps them all.
+flowLog:
+  enabled: true
+  keepDays: 90
+
 # Resource-pack messages shared across all rooms. Rooms may override any of these keys locally;
 # otherwise the values here are used as defaults.
 rpMessages:

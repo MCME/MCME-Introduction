@@ -5,6 +5,9 @@ import com.comphenix.protocol.ProtocolManager;
 import com.mcmiddleearth.introduction.paper.command.ConfirmCommand;
 import com.mcmiddleearth.introduction.paper.command.IntroCommand;
 import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
+import com.mcmiddleearth.introduction.paper.flow.FlowLog;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.listener.ConfirmPreLoginListener;
 import com.mcmiddleearth.introduction.paper.listener.GlowListener;
@@ -43,6 +46,8 @@ public class IntroductionPlugin extends JavaPlugin {
     private GlowListener glowListener;
 
     private ConfirmDataManager confirmDataManager;
+
+    private FlowLog flowLog = FlowLog.disabled();
 
     public static final String CHANNEL = "mcme:intro";
 
@@ -84,7 +89,7 @@ public class IntroductionPlugin extends JavaPlugin {
     }
 
     public void unloadData() {
-        Bukkit.getOnlinePlayers().forEach(RoomListener::exitAllRooms);
+        Bukkit.getOnlinePlayers().forEach(player -> RoomListener.exitAllRooms(player, Exit.STOPPED));
         first.unload();
         second.unload();
         ChatPacketListener.unSilenceAll();
@@ -95,9 +100,12 @@ public class IntroductionPlugin extends JavaPlugin {
         }
         HandlerList.unregisterAll(this);
         IntroductionChain.unload();
+        FlowEvents.stop();
+        flowLog.close();
     }
 
     public void loadData() {
+        flowLog = FlowLog.open(getDataFolder(), getConfig(), getLogger());
         IntroductionChain.load();
         YamlConfiguration locationConfig = new YamlConfiguration();
         try {
@@ -115,6 +123,7 @@ public class IntroductionPlugin extends JavaPlugin {
         // Register pre-login listener which will load data on demand (AsyncPlayerPreLoginEvent).
         // It is registered here rather than in onEnable because unloadData() unregisters all listeners.
         Bukkit.getPluginManager().registerEvents(new ConfirmPreLoginListener(), this);
+        FlowEvents.start(getPluginMeta().getVersion(), ((SecondRoom) second).getSupportedVersions());
     }
 
     public static IntroductionPlugin getInstance(){return instance;}
@@ -152,6 +161,10 @@ public class IntroductionPlugin extends JavaPlugin {
 
     public ConfirmDataManager getConfirmDataManager() {
         return confirmDataManager;
+    }
+
+    public FlowLog getFlowLog() {
+        return flowLog;
     }
 
     private static String prefix = "[MCME-Intro] ";

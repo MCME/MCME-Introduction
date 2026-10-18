@@ -3,6 +3,8 @@ package com.mcmiddleearth.introduction.paper.listener;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import org.bukkit.Bukkit;
@@ -68,7 +70,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 room.handleOverride(player, true);
             }
             //event.setCancelled(true);
-            teleportToNextRoom(room, player);
+            teleportToNextRoom(room, player, Exit.WALKED);
         }
     }
 
@@ -102,10 +104,15 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             toRoom.setPlayerEnterTime(player.getUniqueId());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                 () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
                     player.teleport(toRoom.getPlayerLocation());
                     Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                         () -> {
-                            handlePlayerMove(event);
+                            if (player.isOnline()) {
+                                handlePlayerMove(event);
+                            }
                         }, 1);
                 },1);
             return true;
@@ -124,7 +131,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
              if(!room.isAwaitingTeleport(player)) {
                 //Logger.getGlobal().info("Is AWaiting teleport: "+room.isAwaitingTeleport(player));
                 if (room.isSkipped(player)) {
-                    teleportToNextRoom(room, player);
+                    passOn(room, player);
                     //Logger.getGlobal().info("TELEPORT TO NEXT ROOM");
                 } else {
                     if(!room.handleEnter(player)
@@ -150,7 +157,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 }
             }
         } else {
-            exitAllRooms(player);
+            exitAllRooms(player, Exit.LEFT);
         }
 
     }
@@ -163,16 +170,31 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         if (room != null) {
             room.silence(event.getPlayer());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                if (room.isSkipped(event.getPlayer())) {
-                    teleportToNextRoom(room, event.getPlayer());
+                Player player = event.getPlayer();
+                // Turning the head is a move, and a move in a room passes on a player who need not be
+                // there: this one can be on their way out already.
+                if (!player.isOnline() || room.isAwaitingTeleport(player)) {
+                    return;
+                }
+                if (!room.isInside(player.getLocation())) {
+                    // Out of the room before the delay was over: passed on, or moved out some other way.
+                    // Joining in the room hid their chat.
+                    room.unSilence(player);
+                    return;
+                }
+                if (room.isSkipped(player)) {
+                    passOn(room, player);
                 } else {
-                    room.handleEnter(event.getPlayer());
+                    room.handleEnter(player);
                 }
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
          } else {
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Room second = IntroductionPlugin.getInstance().getSecond();
                 Player player = event.getPlayer();
+                if (!player.isOnline()) {
+                    return;
+                }
                 ((SecondRoom)second).startReminderTask(player);
                 IntroductionChain.continueChain(player);
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
@@ -183,7 +205,7 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     public void quitServer(PlayerQuitEvent event) {
         IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
-        exitAllRooms(event.getPlayer());
+        exitAllRooms(event.getPlayer(), Exit.QUIT);
         IntroductionChain.interruptChain(event.getPlayer());
         ((SecondRoom)IntroductionPlugin.getInstance().getSecond()).cancelReminderTask(event.getPlayer());
     }
@@ -218,22 +240,41 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         }
     }
 
-    public static void teleportToNextRoom(Room room, Player player) {
+    /**
+     * Sends the player on from a room they need not be in. A player who is not in the room yet,
+     * such as one who joins standing in it, was passed over it.
+     */
+    private static void passOn(Room room, Player player) {
+        if(!room.isEntered(player)) {
+            FlowEvents.skip(room, player);
+            // Joining in a room hid the player's chat, and only leaving a room gives it back.
+            room.unSilence(player);
+        }
+        teleportToNextRoom(room, player, Exit.SKIPPED);
+    }
+
+    /**
+     * Takes the player from a room to the next room they need, or on to the tips.
+     *
+     * @param how why the player leaves the room, for the flow log
+     */
+    public static void teleportToNextRoom(Room room, Player player, Exit how) {
         Room next = room.getNext();
         Room previous = room;
 //Logger.getGlobal().info("1 skipped: "+next+" "+next.isSkipped(player));
         while(next != null && next.isSkipped(player)) {
+            FlowEvents.skip(next, player);
             room = next;
             next = next.getNext();
 //Logger.getGlobal().info("2 skipped: "+next+" "+next.isSkipped(player));
         }
 //Logger.getGlobal().info(room+" Teleporting "+player.getName()+" from "+previous+" to "+next);
-        room.teleport(player, previous, next);
+        room.teleport(player, previous, next, how);
     }
 
-    public static void exitAllRooms(Player player) {
-        IntroductionPlugin.getInstance().getFirst().handleExit(player, false);
-        IntroductionPlugin.getInstance().getSecond().handleExit(player, false);
+    public static void exitAllRooms(Player player, Exit how) {
+        IntroductionPlugin.getInstance().getFirst().handleExit(player, false, how);
+        IntroductionPlugin.getInstance().getSecond().handleExit(player, false, how);
     }
 
     public static void cancelAllUnsilenceTasks(Player player) {

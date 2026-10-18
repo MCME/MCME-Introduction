@@ -54,6 +54,8 @@ Placeholders:
 | `reminderPeriod` | `600` | Ticks between two reminders of the compatibility room. |
 | `reminderDuration` | `100` | Ticks a reminder's warning screen stays, counted from the moment the resource pack is loaded. |
 | `rpMessages.*` | see below | Resource-pack messages for all rooms. A room can override each key. |
+| `flowLog.enabled` | `true` | Whether the plugin writes the flow log, a line for each step a player takes through the rooms, in `flow/` in its folder. [flow-log.md](flow-log.md) describes it. |
+| `flowLog.keepDays` | `90` | Days of flow log to keep; older days are deleted. `0` keeps them all. |
 
 ### Resource-pack messages
 

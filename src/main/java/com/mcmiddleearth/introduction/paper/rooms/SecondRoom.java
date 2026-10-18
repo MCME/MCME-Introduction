@@ -4,6 +4,8 @@ import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.kyori.adventure.text.Component;
@@ -16,11 +18,38 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class SecondRoom extends Room {
+
+    /**
+     * Which compatibility warning a client gets: each has its own picture in config.yml.
+     */
+    public enum Warning {
+        /** A vanilla client on a version that is not supported: overlayWarningVersion. */
+        VERSION,
+        /** Forge, NeoForge, LiteLoader or OptiFine: overlayWarningModded. */
+        MODDED,
+        /** Fabric with MCME's marker mod, on a version that is not supported: overlayWarningMcme. */
+        MCME,
+        /** Fabric without MCME's marker mod: overlayWarningMissingMod. */
+        MISSING_MOD;
+
+        /** The warning's name in the flow log. */
+        public String key() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    // Where the room reads a player's client version (ViaVersion) and whether the client has MCME's
+    // marker mod (MCME-Architect). Tests replace them: neither plugin runs in tests.
+    static Function<Player, ProtocolVersion> clientVersion = player -> Via.getAPI().getPlayerProtocolVersion(player);
+    static Predicate<Player> mcmeMarker = RpManager::isSodiumClient;
 
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded,
@@ -62,8 +91,8 @@ public class SecondRoom extends Room {
     }
 
     @Override
-    public void teleport(Player player, Room previous, Room next) {
-        super.teleport(player, previous, next);
+    public void teleport(Player player, Room previous, Room next, Exit how) {
+        super.teleport(player, previous, next, how);
         long reminederDelay = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
         Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                                            ()-> startReminderTask(player), reminederDelay);
@@ -72,9 +101,7 @@ public class SecondRoom extends Room {
     @Override
     public boolean isSkipped(Player player) {
         ConfirmDataManager dataManager = IntroductionPlugin.getInstance().getConfirmDataManager();
-        if(isSupportedVersion(player)
-                    && ((!isForge(player) && !isFabric(player))
-                        || (isFabric(player) && isMcmeMarker(player)))) {
+        if(isCompatible(player)) {
             //vanilla or mcme sodium installer
 //Logger.getGlobal().info("vanilla or mcme sodium installer: forge: "+isForge(player)+" fabric: "+isFabric(player)+" marker: "+isMcmeMarker(player));
 //Logger.getGlobal().info("Client Brand: "+player.getClientBrandName());
@@ -90,19 +117,43 @@ public class SecondRoom extends Room {
         }
     }
 
+    /**
+     * Whether the client needs nothing from the player: a supported version, and vanilla or
+     * Fabric with MCME's marker mod.
+     */
+    public boolean isCompatible(Player player) {
+        return isSupportedVersion(player)
+                && ((!isForge(player) && !isFabric(player))
+                    || (isFabric(player) && isMcmeMarker(player)));
+    }
+
     @Override
     public NamespacedKey selectCameraOverlay(Player player) {
+        return switch(getWarning(player)) {
+            case MODDED -> overlayWarningModded;
+            case MCME -> overlayWarningMcme;
+            case MISSING_MOD -> overlayWarningMissingMod;
+            case VERSION -> overlayWarningVersion;
+        };
+    }
+
+    public Warning getWarning(Player player) {
         if(isForge(player)) {
-            return overlayWarningModded;
+            return Warning.MODDED;
         } else if(isFabric(player)) {
-            if(isMcmeMarker(player)) {
-                return overlayWarningMcme;
-            } else {
-                return overlayWarningMissingMod;
-            }
+            return (isMcmeMarker(player) ? Warning.MCME : Warning.MISSING_MOD);
         } else {
-            return overlayWarningVersion;
+            return Warning.VERSION;
         }
+    }
+
+    @Override
+    public String getFlowName() {
+        return "compatibility";
+    }
+
+    public List<String> getSupportedVersions() {
+        return supportedVersions;
     }
 
     @Override
@@ -136,7 +187,11 @@ public class SecondRoom extends Room {
     }
 
     public boolean isSupportedVersion(Player player) {
-        return isSupportedVersion(Via.getAPI().getPlayerProtocolVersion(player));
+        return isSupportedVersion(getClientVersion(player));
+    }
+
+    public ProtocolVersion getClientVersion(Player player) {
+        return clientVersion.apply(player);
     }
 
     /**
@@ -161,7 +216,7 @@ public class SecondRoom extends Room {
     }
 
     public boolean isMcmeMarker(Player player) {
-        return RpManager.isSodiumClient(player);
+        return mcmeMarker.test(player);
     }
 
     private void sendMessage(Player player, Component message) {
@@ -171,11 +226,16 @@ public class SecondRoom extends Room {
 
     public void startReminderTask(Player player) {
 //Logger.getGlobal().info("start reminder task for "+player.getName());
-        if(isSkipped(player)) {
+        // Started with a delay, by leaving the room or by joining: the player can have left since.
+        if(!player.isOnline() || isSkipped(player)) {
             return;
         }
         cancelReminderTask(player);
         long reminderPeriod =  IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
+        // In a room the room's own screen is on, and the reminder shows nothing.
+        if(!IntroductionPlugin.getInstance().isInsideRoom(player)) {
+            FlowEvents.reminder(player, getWarning(player));
+        }
         handleOverride(player, true);
         startStopReminderTask(player);
         BukkitTask task = new BukkitRunnable() {
@@ -188,6 +248,7 @@ public class SecondRoom extends Room {
                     return;
                 }
                 if (isRpLoaded(rpPlayerData.apply(player)) ){ //!IntroductionPlugin.getInstance().isInsideRoom(player)) {
+                    FlowEvents.reminder(player, getWarning(player));
                     handleOverride(player, true);
                     startStopReminderTask(player);
                 }
