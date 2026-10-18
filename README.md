@@ -122,6 +122,10 @@ In `plugins/MCME-Introduction/`:
 - `finishedPlayerList.uid`: the players who finished the introduction once, one UUID per line. They
   get no network-wide broadcast when they finish again.
 - `EnabledGlowItems.dat`: the players with glowing items on, one UUID per line.
+- `flow/YYYY-MM-DD.jsonl`: the flow log, a JSON line for each step a player takes through the
+  rooms (entering, the resource pack's result, leaving and how, finishing, reminders, `/confirm`),
+  one file per UTC day, kept 90 days. It is meant for tools such as hub-flow;
+  [docs/flow-log.md](docs/flow-log.md) describes it.
 
 With `database.enabled: true`, players' `/confirm` choices are stored in the table `confirm_data`
 (`player_uuid`, `optifine`, `ignore_confirmed`), which the plugin creates; a player's choices are
@@ -166,7 +170,11 @@ server with the plugin loaded. It fills in ProtocolLib's protocol manager and ke
 way Paper keeps them; MockBukkit ignores `depend:`, so the other plugins are simply absent.
 
 Tests that let the rooms check the resource pack replace `Room.rpPlayerData`: MCME-Architect's
-`RpManager` can't load without a running Architect.
+`RpManager` can't load without a running Architect. Tests that put players in the rooms extend
+`RoomTestBase`, which gives every player a 26.2 client without MCME's marker mod, by replacing
+`SecondRoom.clientVersion` (ViaVersion) and `SecondRoom.mcmeMarker` (MCME-Architect); its `addRooms`
+builds two rooms in a world. Flow log tests read the log back with `FlowLogFiles` after
+`getFlowLog().close()`, which writes the events still waiting.
 
 Not covered by tests:
 - the Velocity side;

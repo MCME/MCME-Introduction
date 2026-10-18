@@ -87,6 +87,17 @@ class FlowLogTest {
     }
 
     @Test
+    void aMissingTextIsWrittenAsNull() {
+        FlowLog log = openLog(90);
+
+        log.log("enter", PLAYER, e -> e.addProperty("brand", (String) null));
+
+        JsonObject event = FlowLogFiles.read(folder).getFirst();
+        assertTrue(event.has("brand"), "the field is there");
+        assertTrue(event.get("brand").isJsonNull());
+    }
+
+    @Test
     void daysOlderThanKeepDaysAreDeleted() throws IOException {
         Files.writeString(folder.resolve("2026-07-19.jsonl"), "{}\n");  // 91 days before 2026-10-18
         Files.writeString(folder.resolve("2026-07-20.jsonl"), "{}\n");  // 90 days before
