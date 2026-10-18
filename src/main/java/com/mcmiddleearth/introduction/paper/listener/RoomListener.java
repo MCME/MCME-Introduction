@@ -233,6 +233,8 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     private static void passOn(Room room, Player player) {
         if(!room.isEntered(player)) {
             FlowEvents.skip(room, player);
+            // Joining in a room hid the player's chat, and only leaving a room gives it back.
+            room.unSilence(player);
         }
         teleportToNextRoom(room, player, Exit.SKIPPED);
     }

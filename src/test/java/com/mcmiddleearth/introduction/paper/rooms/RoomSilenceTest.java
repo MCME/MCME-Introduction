@@ -1,14 +1,18 @@
 package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
+import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.io.IOException;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -82,5 +86,17 @@ class RoomSilenceTest extends RoomTestBase {
         server.getScheduler().performTicks(UNSILENCE_DELAY + 20);
 
         assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back after the rooms");
+    }
+
+    @Test
+    void chatComesBackForAPlayerWhoJoinsInARoomAndIsPassedOn() throws IOException {
+        // Quit in the compatibility room last time, and came back with a client that needs nothing.
+        World world = addRooms();
+        player.setLocation(new Location(world, 22, 61, 2));
+
+        server.getPluginManager().callEvent(new PlayerConnectEvent(player, PlayerConnectEvent.ConnectReason.JOIN_PROXY));
+        server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + TELEPORT_DELAY + UNSILENCE_DELAY + 20);
+
+        assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back after being passed on");
     }
 }

@@ -37,29 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RoomFlowLogTest extends RoomTestBase {
 
-    // The rooms' tpTransitionTimes in the default config.yml start with 10: the teleport comes
-    // 10 ticks after the black screen.
-    private static final int TELEPORT_DELAY = 10;
-
-    // Two rooms side by side, as in a locations.yml. Leaving the first room puts a player in the
-    // second; leaving the second puts them outside both.
-    private static final String LOCATIONS = """
-            firstRoom:
-              world: world
-              pos1: 0 60 0
-              pos2: 4 64 4
-              playerLocation: 2 61 2 0 0
-              tpTarget:
-                pos: 22 61 2 0 0
-            secondRoom:
-              world: world
-              pos1: 20 60 0
-              pos2: 24 64 4
-              playerLocation: 22 61 2 0 0
-              tpTarget:
-                pos: 40 61 2 0 0
-            """;
-
     private Function<Player, RpPlayerData> realPackStatus;
     private final RpPlayerData packStatus = new RpPlayerData();
     private World world;
@@ -70,12 +47,9 @@ class RoomFlowLogTest extends RoomTestBase {
     void setUp() throws IOException {
         realPackStatus = Room.rpPlayerData;
         Room.rpPlayerData = p -> packStatus;
-        world = server.addSimpleWorld("world");
-        Files.writeString(new File(plugin.getDataFolder(), "locations.yml").toPath(), LOCATIONS);
         // Without its advancement, the first room awards none (MockBukkit cannot show it).
         plugin.getConfig().set("firstRoom.advancementDisplay", null);
-        plugin.unloadData();
-        plugin.loadData();
+        world = addRooms();
         player = new PlayerMock(server, "Newcomer") {
             @Override
             public String getClientBrandName() {
