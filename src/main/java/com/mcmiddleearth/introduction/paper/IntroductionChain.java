@@ -51,6 +51,8 @@ public class IntroductionChain {
         }
         config = IntroductionPlugin.getInstance().getConfig()
                 .getConfigurationSection("introductionChain");
+        // Loading again replaces the tips: appending would show each one twice.
+        advancements.clear();
         if(config != null) {
             startMessage = Room.getMessage(config.getString("startMessage"));
             ConfigurationSection titleConfig = config.getConfigurationSection("title");

@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -84,5 +85,24 @@ class RoomTipsTest extends RoomTestBase {
 
         assertEquals(List.of("mcme:introchain0"), tipsShown, "tips after entering a room");
         plugin.getFirst().handleExit(player, false, Exit.LEFT);
+    }
+
+    @Test
+    void loadingTheTipsAgainShowsEachTipOnce() {
+        IntroductionChain.load();
+
+        IntroductionChain.startChain(player);
+        server.getScheduler().performTicks(FIRST_TIP + TIP_PERIOD * 2L * tipCount());
+
+        assertEquals(allTips(), tipsShown);
+    }
+
+    private int tipCount() {
+        return plugin.getConfig().getStringList("introductionChain.advancementDisplays").size();
+    }
+
+    /** Each tip's advancement key, in order. */
+    private List<String> allTips() {
+        return IntStream.range(0, tipCount()).mapToObj(i -> "mcme:introchain" + i).toList();
     }
 }
