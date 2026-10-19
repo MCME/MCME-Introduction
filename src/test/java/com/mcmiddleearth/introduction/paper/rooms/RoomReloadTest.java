@@ -1,5 +1,6 @@
 package com.mcmiddleearth.introduction.paper.rooms;
 
+import com.google.common.io.ByteStreams;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
@@ -16,6 +17,7 @@ import org.bukkit.advancement.AdvancementProgress;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,9 +25,12 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -41,6 +46,8 @@ class RoomReloadTest extends RoomTestBase {
 
     private Function<Player, RpPlayerData> realPackStatus;
     private final RpPlayerData packStatus = new RpPlayerData();
+    // What the rooms told the proxy about the player.
+    private final List<String> toProxy = new ArrayList<>();
     private World world;
     private PlayerMock player;
 
@@ -63,6 +70,13 @@ class RoomReloadTest extends RoomTestBase {
             @Override
             public AdvancementProgress getAdvancementProgress(Advancement advancement) {
                 return Mockito.mock(AdvancementProgress.class);
+            }
+
+            // MockBukkit checks plugin messages but keeps none: the rooms' "enter" and "exit".
+            @Override
+            public void sendPluginMessage(Plugin source, String channel, byte[] message) {
+                super.sendPluginMessage(source, channel, message);
+                toProxy.add(ByteStreams.newDataInput(message).readUTF());
             }
         };
         server.addPlayer(player);
@@ -103,6 +117,20 @@ class RoomReloadTest extends RoomTestBase {
         server.getScheduler().performTicks(RELOAD_DELAY + 2 * joinDelay() + 5);
 
         assertTrue(plugin.getSecond().isFixed(player), "the new compatibility room's reminder");
+    }
+
+    @Test
+    void aReloadRightAfterLeavingTheRoomsTellsTheProxyToo() {
+        plugin.getFirst().handleEnter(player);
+        // Leaving the last room gives chat back a moment later, here and on the proxy.
+        plugin.getFirst().handleExit(player, true, Exit.WALKED);
+        toProxy.clear();
+
+        plugin.unloadData();
+        server.getScheduler().performTicks(UNSILENCE_DELAY + 5);
+
+        assertEquals(List.of("exit"), toProxy, "told the proxy");
+        assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back");
     }
 
     private long joinDelay() {

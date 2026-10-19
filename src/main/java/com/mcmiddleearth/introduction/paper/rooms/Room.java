@@ -154,6 +154,13 @@ public abstract class Room {
         // See removeAdvancement().
         unloaded = true;
         releaseHeadItems();
+        // Chat that was about to come back comes back now: the task also tells the proxy.
+        unsilenceTasks.forEach((uuid, task) -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if(!task.isCancelled() && player != null) {
+                unSilence(player);
+            }
+        });
         // After a reload new rooms take over: this room's tasks must not run on with its players.
         // One in the black screen stays where they are, and enters the new room at their next move.
         for(Map<UUID, BukkitTask> tasks : List.of(actionBarTasks, overlayTasks, unsilenceTasks, blackScreenTasks)) {
