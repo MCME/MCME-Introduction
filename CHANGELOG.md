@@ -13,8 +13,9 @@ Fixes from the audit of 2026-10-19.
   taken off when the player joins outside the rooms. After a reload the old reminders no longer
   came twice.
 - A player who rejoined in a room after a crash, or was teleported by staff from one room into the
-  other, ended the introduction stuck in spectator mode. They now get their own game mode back, or
-  the server's default one.
+  other, ended the introduction stuck in spectator mode. A room now keeps the player's own game
+  mode in the player's data (`mcme:intro_gamemode`) while they are in it, so it comes back even
+  after a crash; staff who enter a room in spectator mode leave it in spectator mode.
 - The spectator menu's "teleport to player", and spectating an entity, took a newcomer out of a room
   past the compatibility warning, the tips and the reminders.
 - `/intro reload` said nothing, so it was easy to run twice, which loaded everything twice (tips

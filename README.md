@@ -25,9 +25,9 @@ One jar serves both sides of the network and is installed unchanged on each:
 - **Entering a room.** A room is a box in the world. A player who moves or is teleported into it is
   placed at the room's `playerLocation`, switched to spectator mode, and shown the room's camera
   overlay (the full-screen picture) through an item on their head. The previous head item and game
-  mode come back when they leave; a player who came in spectator mode gets the server's default
-  game mode instead. Spectator mode's own ways out, the "teleport to player" menu and spectating an
-  entity, don't work in a room.
+  mode come back when they leave. The game mode is kept in the player's own data meanwhile, so
+  after a crash in a room it still comes back. Spectator mode's own ways out, the "teleport to
+  player" menu and spectating an entity, don't work in a room.
 - **Leaving a room.** The player steps to the **left** (the strafe-left key, A by default). The screen
   fades to black and the player moves on: from the welcome room to the compatibility room or past it,
   from the compatibility room to the hub.

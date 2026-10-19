@@ -3,7 +3,9 @@ package com.mcmiddleearth.introduction.paper.rooms;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import org.bukkit.GameMode;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,12 +15,15 @@ import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * A room puts the player in spectator mode and gives their own game mode back when they leave.
- * That must never be the room's spectator mode itself.
+ * It keeps that mode in the player's own data, so a crash in a room doesn't lose it.
  */
 class RoomGameModeTest extends RoomTestBase {
+
+    private static final NamespacedKey SAVED_MODE = NamespacedKey.fromString("mcme:intro_gamemode");
 
     private Function<Player, RpPlayerData> realPackStatus;
     private PlayerMock player;
@@ -47,15 +52,44 @@ class RoomGameModeTest extends RoomTestBase {
     }
 
     @Test
-    void aPlayerWhoEntersInSpectatorModeLeavesInTheServersDefaultMode() {
-        // After a crash, or a kill, in a room: the player's saved game mode is the room's.
-        server.setDefaultGameMode(GameMode.ADVENTURE);
+    void theGameModeIsKeptWithThePlayerWhileInARoom() {
+        player.setGameMode(GameMode.ADVENTURE);
+
+        plugin.getFirst().handleEnter(player);
+        assertEquals("ADVENTURE", savedMode(), "saved with the player");
+        plugin.getFirst().handleExit(player, false, Exit.WALKED);
+
+        assertEquals(GameMode.ADVENTURE, player.getGameMode());
+        assertNull(savedMode(), "left with the player");
+    }
+
+    @Test
+    void aGameModeLeftByACrashComesBack() {
+        // A crash in a room: the server saved the player in the room's spectator mode, and with
+        // their own mode kept by the room.
         player.setGameMode(GameMode.SPECTATOR);
+        player.getPersistentDataContainer().set(SAVED_MODE, PersistentDataType.STRING, "ADVENTURE");
 
         plugin.getFirst().handleEnter(player);
         plugin.getFirst().handleExit(player, false, Exit.WALKED);
 
         assertEquals(GameMode.ADVENTURE, player.getGameMode());
+        assertNull(savedMode());
+    }
+
+    @Test
+    void staffWhoComeInSpectatorModeLeaveInSpectatorMode() {
+        player.setGameMode(GameMode.SPECTATOR);
+
+        plugin.getFirst().handleEnter(player);
+        plugin.getFirst().handleExit(player, false, Exit.WALKED);
+
+        assertEquals(GameMode.SPECTATOR, player.getGameMode());
+    }
+
+    /** The game mode a room keeps with the player while they are in it. */
+    private String savedMode() {
+        return player.getPersistentDataContainer().get(SAVED_MODE, PersistentDataType.STRING);
     }
 
     @Test

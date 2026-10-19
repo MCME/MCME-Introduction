@@ -22,6 +22,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.EquippableComponent;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -75,6 +77,9 @@ public abstract class Room {
     private final Component rpInvalidUrlMessage;
 
     protected static final Set<NamespacedKey> overlays = new HashSet<>();
+
+    // The player's own game mode while they are in a room, in the player's data.
+    private static final NamespacedKey SAVED_GAME_MODE = NamespacedKey.fromString("mcme:intro_gamemode");
 
     // Where the rooms read a player's resource-pack status: MCME-Architect's RpManager. Tests replace
     // it, because RpManager cannot even be loaded without a running MCME-Architect.
@@ -294,12 +299,23 @@ public abstract class Room {
     }
 
     /**
-     * The game mode the player gets back on leaving the room. A player who comes in spectator mode
-     * normally has it from a room, saved there by a crash for example, so they get the server's
-     * default mode instead. That includes staff who fly into a room in spectator mode.
+     * The game mode the player gets back on leaving the room, which is also kept with the player's
+     * own data until then. The server saves that data, so a mode found there already was left by
+     * a crash in a room: it wins over the room's spectator mode the player was saved in.
      */
     private static GameMode gameModeToRestore(Player player) {
-        return (player.getGameMode() == GameMode.SPECTATOR ? Bukkit.getDefaultGameMode() : player.getGameMode());
+        PersistentDataContainer data = player.getPersistentDataContainer();
+        GameMode mode = player.getGameMode();
+        String kept = data.get(SAVED_GAME_MODE, PersistentDataType.STRING);
+        if(kept != null) {
+            try {
+                mode = GameMode.valueOf(kept);
+            } catch(IllegalArgumentException notAGameMode) {
+                // Then the mode the player has.
+            }
+        }
+        data.set(SAVED_GAME_MODE, PersistentDataType.STRING, mode.name());
+        return mode;
     }
 
     private void recordEnter(Player player) {
@@ -330,6 +346,7 @@ public abstract class Room {
                 playerItems.remove(player.getUniqueId());
             //}
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
+            player.getPersistentDataContainer().remove(SAVED_GAME_MODE);
             playerGamemodes.remove(player.getUniqueId());
             stopActionBar(player);
 //Logger.getGlobal().info("unsilence delay: "+ unsilenceDelay);
