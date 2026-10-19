@@ -134,7 +134,9 @@ The compatibility room picks its screen and its text by client:
 | `database` | `minecraft` | The database (schema); the plugin creates its table `confirm_data` there. |
 | `user`, `password` | `root`, empty | The login. |
 
-The connection uses `useSSL=false&autoReconnect=true`. These settings are read once at startup.
+The connection uses `useSSL=false&autoReconnect=true&connectTimeout=5000&socketTimeout=5000`: a
+player's login waits for their row, at most about 5 seconds each for connecting and for the answer.
+These settings are read once at startup.
 
 ## locations.yml
 

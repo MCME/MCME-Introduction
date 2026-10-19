@@ -39,7 +39,9 @@ public class DatabaseConnector {
         String database = cfg.getString("database.database", "minecraft");
         this.user = cfg.getString("database.user", "root");
         this.password = cfg.getString("database.password", "");
-        this.url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&autoReconnect=true", host, port, database);
+        // A login waits for the player's row: an unreachable database must not hold it up for long.
+        this.url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&autoReconnect=true&connectTimeout=5000&socketTimeout=5000",
+                host, port, database);
         // Note: actual initialization (table creation) is performed via initialize() synchronously during startup
     }
 

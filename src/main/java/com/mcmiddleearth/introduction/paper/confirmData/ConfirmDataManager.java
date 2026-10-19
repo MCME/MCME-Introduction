@@ -21,10 +21,18 @@ public class ConfirmDataManager {
     private final DatabaseConnector databaseConnector;
 
     public ConfirmDataManager() {
-        this.databaseConnector = new DatabaseConnector();
+        this(new DatabaseConnector());
+    }
+
+    // Tests hand in a connector of their own: no database runs in them.
+    ConfirmDataManager(DatabaseConnector databaseConnector) {
+        this.databaseConnector = databaseConnector;
         if (this.databaseConnector.isEnabled()) {
             this.databaseConnector.initialize();
-            IntroductionPlugin.getInstance().getLogger().info("ConfirmDataManager: DatabaseConnector initialized synchronously.");
+            if (!this.databaseConnector.isInitialized()) {
+                IntroductionPlugin.getInstance().getLogger().warning("ConfirmDataManager: without the database, "
+                        + "players' /confirm choices are kept in memory on this server until it restarts.");
+            }
         } else {
             IntroductionPlugin.getInstance().getLogger().fine("DatabaseConnector is not enabled; using in-memory storage only.");
         }
@@ -39,12 +47,20 @@ public class ConfirmDataManager {
 
     /**
      * Apply a database row into the in-memory cache without persisting.
-     * Intended to be called from an async context after reading a row from DB.
+     * The row wins for both choices, so a /confirm reset on another server is seen here too.
      */
     public void applyRow(DatabaseConnector.ConfirmRow row) {
         if (row == null) return;
-        if (row.optifine) optifineConfirmed.add(row.uuid);
-        if (row.ignore) ignoreConfirmed.add(row.uuid);
+        setChoice(optifineConfirmed, row.uuid, row.optifine);
+        setChoice(ignoreConfirmed, row.uuid, row.ignore);
+    }
+
+    private static void setChoice(Set<String> confirmed, String uuid, boolean choice) {
+        if (choice) {
+            confirmed.add(uuid);
+        } else {
+            confirmed.remove(uuid);
+        }
     }
 
     /**
@@ -112,16 +128,13 @@ public class ConfirmDataManager {
         }
     }
 
+    /**
+     * Reads the player's row and applies it, before returning: called in the pre-login event, so
+     * the choices are known when the player joins. Blocks, so never call it on the main thread.
+     */
     public void loadPlayerData(String uuid) {
 //Logger.getGlobal().info("Confirm: load player data");
         if (databaseConnector == null || !databaseConnector.isInitialized()) return;
-        Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(), () ->
-        {
-            DatabaseConnector.ConfirmRow row = databaseConnector.readRow(uuid);
-            if (row != null) {
-                applyRow(row);
-//Logger.getGlobal().info("Confirm: done");
-            }
-        });
+        applyRow(databaseConnector.readRow(uuid));
     }
 }

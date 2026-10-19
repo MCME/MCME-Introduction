@@ -7,7 +7,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 
 /**
- * Loads confirmation data for players on AsyncPlayerPreLoginEvent.
+ * Loads confirmation data for players on AsyncPlayerPreLoginEvent. The event runs off the main
+ * thread and the login waits for it, so the data is read right here: it is there when the player
+ * joins, before the rooms decide whether to show the compatibility room.
  */
 public class ConfirmPreLoginListener implements Listener {
 
