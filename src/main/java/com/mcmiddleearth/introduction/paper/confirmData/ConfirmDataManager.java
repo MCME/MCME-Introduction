@@ -91,11 +91,10 @@ public class ConfirmDataManager {
     public void confirmOptifine(UUID playerUUID) {
         if (playerUUID == null) return;
         optifineConfirmed.add(playerUUID.toString());
-        // persist async
+        // persist async; only this choice, as the other one may have changed on another server
         if (databaseConnector.isInitialized()) {
-            boolean ignore = ignoreConfirmed.contains(playerUUID.toString());
             Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(),
-                    () -> databaseConnector.upsertRow(playerUUID.toString(), true, ignore));
+                    () -> databaseConnector.saveOptifine(playerUUID.toString(), true));
         }
     }
 
@@ -107,11 +106,10 @@ public class ConfirmDataManager {
     public void confirmIgnore(UUID playerUUID) {
         if (playerUUID == null) return;
         ignoreConfirmed.add(playerUUID.toString());
-        // persist async
+        // persist async; only this choice, as the other one may have changed on another server
         if (databaseConnector.isInitialized()) {
-            boolean optifine = optifineConfirmed.contains(playerUUID.toString());
             Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(),
-                    () -> databaseConnector.upsertRow(playerUUID.toString(), optifine, true));
+                    () -> databaseConnector.saveIgnore(playerUUID.toString(), true));
         }
     }
 

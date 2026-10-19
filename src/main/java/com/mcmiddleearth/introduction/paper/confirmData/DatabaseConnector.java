@@ -138,6 +138,37 @@ public class DatabaseConnector {
     }
 
     /**
+     * Writes a player's /confirm optifine and leaves their other choice as the database has it:
+     * another server may have changed that one since this server read the row.
+     * Synchronous; caller must run async.
+     */
+    public void saveOptifine(String playerUUID, boolean optifine) {
+        saveChoice("INSERT INTO confirm_data (player_uuid, optifine) VALUES (?,?) "
+                + "ON DUPLICATE KEY UPDATE optifine = VALUES(optifine)", playerUUID, optifine);
+    }
+
+    /**
+     * Writes a player's /confirm ignore and leaves their other choice as the database has it.
+     * Synchronous; caller must run async.
+     */
+    public void saveIgnore(String playerUUID, boolean ignore) {
+        saveChoice("INSERT INTO confirm_data (player_uuid, ignore_confirmed) VALUES (?,?) "
+                + "ON DUPLICATE KEY UPDATE ignore_confirmed = VALUES(ignore_confirmed)", playerUUID, ignore);
+    }
+
+    private void saveChoice(String sql, String playerUUID, boolean choice) {
+        ensureNotMainThread();
+        if (playerUUID == null || !initialized) return;
+        try (var conn = DriverManager.getConnection(url, user, password); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUUID);
+            ps.setInt(2, choice ? 1 : 0);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            IntroductionPlugin.getInstance().getLogger().log(Level.WARNING, "Failed to save confirm_data row: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Load all rows from the table. Synchronous; caller must run async. Throws IllegalStateException on main thread.
      */
     /*public List<ConfirmRow> readAll() {
