@@ -94,12 +94,15 @@ public class SecondRoom extends Room {
     }
 
     @Override
-    public void teleport(Player player, Room previous, Room next, Exit how) {
-        super.teleport(player, previous, next, how);
+    public boolean teleport(Player player, Room previous, Room next, Exit how) {
+        if(!super.teleport(player, previous, next, how)) {
+            return false;
+        }
         long reminederDelay = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
         cancelReminderTask(player);
         reminderTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
                                            ()-> startReminderTask(player), reminederDelay));
+        return true;
     }
 
     @Override

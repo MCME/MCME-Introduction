@@ -421,6 +421,23 @@ class RoomFlowLogTest extends RoomTestBase {
         assertEquals("confirmed", exit.get("how").getAsString());
     }
 
+    @Test
+    void aSecondConfirmDuringTheBlackScreenTakesThePlayerOnOnce() throws IOException {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        finishedBefore();
+        server.dispatchCommand(server.getConsoleSender(), "help");
+        player.teleport(new Location(world, 22, 61, 2));
+        plugin.getSecond().handleEnter(player);
+
+        // A double click on the command in the room's text.
+        player.performCommand("confirm ignore");
+        player.performCommand("confirm ignore");
+        server.getScheduler().performTicks(TELEPORT_DELAY + 1);
+
+        assertEquals(1, events("exit").size(), "exits");
+        assertEquals(1, events("finish").size(), "the welcome title and the tips start");
+    }
+
     /** Puts the player on the list of players who finished the introduction before. */
     private void finishedBefore() throws IOException {
         Files.writeString(new File(plugin.getDataFolder(), "finishedPlayerList.uid").toPath(),

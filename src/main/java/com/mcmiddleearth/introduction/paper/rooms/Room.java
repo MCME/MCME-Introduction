@@ -375,10 +375,14 @@ public abstract class Room {
      * on to the tips after the last room.
      *
      * @param how why the player leaves the previous room, for the flow log
+     * @return false when the player is on the way out of the previous room already, such as after
+     *         a double click on /confirm: the black screen and the tips must not come twice
      */
-    public void teleport(Player player, Room previous, Room next, Exit how) {
+    public boolean teleport(Player player, Room previous, Room next, Exit how) {
 //Logger.getGlobal().info("SET awaiting Teleport");
-        previous.awaitingTeleport.add(player.getUniqueId());
+        if(!previous.awaitingTeleport.add(player.getUniqueId())) {
+            return false;
+        }
 //Logger.getGlobal().info("test is awaiting: "+isAwaitingTeleport(player));
 //Logger.getGlobal().info("Second test: "+awaitingTeleport.contains(player.getUniqueId()));
         Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])*50L),
@@ -408,6 +412,7 @@ public abstract class Room {
 //                }, unsilenceDelay);
             }
         },Long.parseLong(tpTransitionTimes[0])));
+        return true;
     }
 
     /**
