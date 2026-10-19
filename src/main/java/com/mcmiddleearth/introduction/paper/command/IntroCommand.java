@@ -20,11 +20,7 @@ public class IntroCommand {
                 .then(Commands.literal("reload")
                         .requires(sender -> sender.getSender().hasPermission("introduction.reload"))
                         .executes(ctx -> {
-                            IntroductionPlugin.getInstance().unloadData();
-                            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                                IntroductionPlugin.getInstance().reloadConfig();
-                                IntroductionPlugin.getInstance().loadData();
-                            },20);
+                            IntroductionPlugin.getInstance().reload(ctx.getSource().getSender());
                             return Command.SINGLE_SUCCESS;
                         }))
                 .then(Commands.literal("glowitem")

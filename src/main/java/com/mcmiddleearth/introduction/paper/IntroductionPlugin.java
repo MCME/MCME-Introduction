@@ -22,15 +22,19 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.advancement.Advancement;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import javax.annotation.Nullable;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Level;
 
 /**
  *
@@ -48,6 +52,9 @@ public class IntroductionPlugin extends JavaPlugin {
     private ConfirmDataManager confirmDataManager;
 
     private FlowLog flowLog = FlowLog.disabled();
+
+    // From /intro reload until its delayed load has run.
+    private boolean reloadPending = false;
 
     public static final String CHANNEL = "mcme:intro";
 
@@ -104,13 +111,51 @@ public class IntroductionPlugin extends JavaPlugin {
         flowLog.close();
     }
 
+    /**
+     * /intro reload: takes the rooms, the tips and the listeners down, and builds them again from
+     * config.yml and locations.yml a second later. Tells the sender how it went; a reload while one
+     * is pending is ignored, as it would load everything twice.
+     */
+    public void reload(CommandSender sender) {
+        if(reloadPending) {
+            sendErrorMessage(sender, "A reload is running already.");
+            return;
+        }
+        sendInfoMessage(sender, "Reloading config.yml and locations.yml...");
+        unloadData();
+        reloadPending = true;
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            try {
+                reloadConfig();
+                loadData();
+                sendInfoMessage(sender, "Reload done.");
+            } catch(RuntimeException e) {
+                getLogger().log(Level.SEVERE, "/intro reload failed: the rooms are off until a reload works.", e);
+                sendErrorMessage(sender, "Reload failed: see the console.");
+            } finally {
+                reloadPending = false;
+            }
+        }, 20);
+    }
+
+    /**
+     * Whether /intro reload has taken the rooms down and not built the new ones yet.
+     */
+    public boolean isReloadPending() {
+        return reloadPending;
+    }
+
     public void loadData() {
         flowLog = FlowLog.open(getDataFolder(), getConfig(), getLogger());
         IntroductionChain.load();
         YamlConfiguration locationConfig = new YamlConfiguration();
         try {
             locationConfig.load(new File(getDataFolder(), "locations.yml"));
-        } catch (IOException | InvalidConfigurationException ignore) {}
+        } catch (FileNotFoundException ignore) {
+            // A server without rooms.
+        } catch (IOException | InvalidConfigurationException e) {
+            getLogger().severe("locations.yml can't be read, so this server has no rooms: " + e.getMessage());
+        }
         first = new FirstRoom(getConfig().getConfigurationSection("firstRoom"),
                               locationConfig.getConfigurationSection("firstRoom"));
         second = new SecondRoom(getConfig().getConfigurationSection("secondRoom"),
@@ -124,6 +169,8 @@ public class IntroductionPlugin extends JavaPlugin {
         // It is registered here rather than in onEnable because unloadData() unregisters all listeners.
         Bukkit.getPluginManager().registerEvents(new ConfirmPreLoginListener(), this);
         FlowEvents.start(getPluginMeta().getVersion(), ((SecondRoom) second).getSupportedVersions());
+        // After /intro reload: the reminders the old rooms stopped go on.
+        ((SecondRoom) second).resumeReminders();
     }
 
     public static IntroductionPlugin getInstance(){return instance;}
@@ -133,10 +180,22 @@ public class IntroductionPlugin extends JavaPlugin {
      * registered advancement until the server stops, and saves it as a file that the next start loads
      * again unless onDisable deleted it. So after /intro reload, or at a start after a crash, the key
      * can be taken already, and registering it again would fail.
+     *
+     * @return null when the advancement is not valid: Paper then skips it without a word, so the
+     *         warning here names it
      */
+    @Nullable
     public static Advancement loadAdvancement(NamespacedKey key, String advancement) {
         Advancement registered = Bukkit.getAdvancement(key);
-        return (registered != null ? registered : Bukkit.getUnsafe().loadAdvancement(key, advancement));
+        if(registered != null) {
+            return registered;
+        }
+        Advancement loaded = Bukkit.getUnsafe().loadAdvancement(key, advancement);
+        if(loaded == null) {
+            getInstance().getLogger().warning("Advancement " + key + " is not valid, so it is left out."
+                    + " Check its display in config.yml.");
+        }
+        return loaded;
     }
 
     public Room getRoom(Location location) {
@@ -169,11 +228,11 @@ public class IntroductionPlugin extends JavaPlugin {
 
     private static String prefix = "[MCME-Intro] ";
 
-    public static void sendInfoMessage(Player player, String message) {
-        player.sendMessage(Component.text(prefix+message).color(NamedTextColor.AQUA).insertion(IntroductionPlugin.CHANNEL));
+    public static void sendInfoMessage(CommandSender sender, String message) {
+        sender.sendMessage(Component.text(prefix+message).color(NamedTextColor.AQUA).insertion(IntroductionPlugin.CHANNEL));
     }
-    public static void sendErrorMessage(Player player, String message) {
-        player.sendMessage(Component.text(prefix+message).color(NamedTextColor.RED).insertion(IntroductionPlugin.CHANNEL));
+    public static void sendErrorMessage(CommandSender sender, String message) {
+        sender.sendMessage(Component.text(prefix+message).color(NamedTextColor.RED).insertion(IntroductionPlugin.CHANNEL));
     }
 
     // Overloads to send formatted Components loaded from config (JSON)

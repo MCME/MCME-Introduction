@@ -3,9 +3,12 @@ package com.mcmiddleearth.introduction.paper.confirmData;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import org.bukkit.Bukkit;
 
+import java.sql.SQLException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.logging.Logger;
 
 /**
@@ -20,11 +23,29 @@ public class ConfirmDataManager {
 
     private final DatabaseConnector databaseConnector;
 
+    // The time in nanoseconds; tests set it.
+    LongSupplier clock = System::nanoTime;
+
+    // After a failed read, logins skip the database for this long.
+    private static final long READ_PAUSE = TimeUnit.SECONDS.toNanos(60);
+    private volatile boolean readsPaused = false;
+    private volatile long readsPausedSince;
+
     public ConfirmDataManager() {
-        this.databaseConnector = new DatabaseConnector();
+        this(new DatabaseConnector());
+    }
+
+    /**
+     * With a connector of the caller's own: tests hand in one, as no database runs in them.
+     */
+    public ConfirmDataManager(DatabaseConnector databaseConnector) {
+        this.databaseConnector = databaseConnector;
         if (this.databaseConnector.isEnabled()) {
             this.databaseConnector.initialize();
-            IntroductionPlugin.getInstance().getLogger().info("ConfirmDataManager: DatabaseConnector initialized synchronously.");
+            if (!this.databaseConnector.isInitialized()) {
+                IntroductionPlugin.getInstance().getLogger().warning("ConfirmDataManager: without the database, "
+                        + "players' /confirm choices are kept in memory on this server until it restarts.");
+            }
         } else {
             IntroductionPlugin.getInstance().getLogger().fine("DatabaseConnector is not enabled; using in-memory storage only.");
         }
@@ -39,12 +60,20 @@ public class ConfirmDataManager {
 
     /**
      * Apply a database row into the in-memory cache without persisting.
-     * Intended to be called from an async context after reading a row from DB.
+     * The row wins for both choices, so a /confirm reset on another server is seen here too.
      */
     public void applyRow(DatabaseConnector.ConfirmRow row) {
         if (row == null) return;
-        if (row.optifine) optifineConfirmed.add(row.uuid);
-        if (row.ignore) ignoreConfirmed.add(row.uuid);
+        setChoice(optifineConfirmed, row.uuid, row.optifine);
+        setChoice(ignoreConfirmed, row.uuid, row.ignore);
+    }
+
+    private static void setChoice(Set<String> confirmed, String uuid, boolean choice) {
+        if (choice) {
+            confirmed.add(uuid);
+        } else {
+            confirmed.remove(uuid);
+        }
     }
 
     /**
@@ -75,11 +104,10 @@ public class ConfirmDataManager {
     public void confirmOptifine(UUID playerUUID) {
         if (playerUUID == null) return;
         optifineConfirmed.add(playerUUID.toString());
-        // persist async
+        // persist async; only this choice, as the other one may have changed on another server
         if (databaseConnector.isInitialized()) {
-            boolean ignore = ignoreConfirmed.contains(playerUUID.toString());
             Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(),
-                    () -> databaseConnector.upsertRow(playerUUID.toString(), true, ignore));
+                    () -> databaseConnector.saveOptifine(playerUUID.toString(), true));
         }
     }
 
@@ -91,11 +119,10 @@ public class ConfirmDataManager {
     public void confirmIgnore(UUID playerUUID) {
         if (playerUUID == null) return;
         ignoreConfirmed.add(playerUUID.toString());
-        // persist async
+        // persist async; only this choice, as the other one may have changed on another server
         if (databaseConnector.isInitialized()) {
-            boolean optifine = optifineConfirmed.contains(playerUUID.toString());
             Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(),
-                    () -> databaseConnector.upsertRow(playerUUID.toString(), optifine, true));
+                    () -> databaseConnector.saveIgnore(playerUUID.toString(), true));
         }
     }
 
@@ -112,16 +139,25 @@ public class ConfirmDataManager {
         }
     }
 
+    /**
+     * Reads the player's row and applies it, before returning: called in the pre-login event, so
+     * the choices are known when the player joins. Blocks, so never call it on the main thread.
+     * <p>
+     * Each login waits for its read, up to the connection's timeouts. So after a failed read the
+     * database is left alone for a minute, and logins go on with the choices known here.
+     */
     public void loadPlayerData(String uuid) {
 //Logger.getGlobal().info("Confirm: load player data");
         if (databaseConnector == null || !databaseConnector.isInitialized()) return;
-        Bukkit.getScheduler().runTaskAsynchronously(IntroductionPlugin.getInstance(), () ->
-        {
-            DatabaseConnector.ConfirmRow row = databaseConnector.readRow(uuid);
-            if (row != null) {
-                applyRow(row);
-//Logger.getGlobal().info("Confirm: done");
-            }
-        });
+        if (readsPaused && clock.getAsLong() - readsPausedSince < READ_PAUSE) return;
+        try {
+            applyRow(databaseConnector.readRow(uuid));
+            readsPaused = false;
+        } catch (SQLException e) {
+            readsPausedSince = clock.getAsLong();
+            readsPaused = true;
+            IntroductionPlugin.getInstance().getLogger().warning("Could not read players' /confirm choices from the"
+                    + " database (" + e.getMessage() + "). Logins skip the database for 60 seconds.");
+        }
     }
 }

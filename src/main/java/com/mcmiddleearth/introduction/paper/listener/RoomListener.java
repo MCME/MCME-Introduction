@@ -1,5 +1,6 @@
 package com.mcmiddleearth.introduction.paper.listener;
 
+import com.destroystokyo.paper.event.player.PlayerStartSpectatingEntityEvent;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
@@ -13,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -20,6 +22,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.util.Vector;
 
+import javax.annotation.Nullable;
 import java.util.logging.Logger;
 
 /**
@@ -77,6 +80,13 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     @EventHandler(priority = EventPriority.NORMAL)
     public void playerTeleport(PlayerTeleportEvent event){
 //Logger.getGlobal().info("Player teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
+        // The spectator menu's "teleport to player" (the number keys) would take the player out of
+        // the room past its screen.
+        if(event.getCause() == PlayerTeleportEvent.TeleportCause.SPECTATE
+                && IntroductionPlugin.getInstance().getRoom(event.getFrom()) != null) {
+            event.setCancelled(true);
+            return;
+        }
         handlePlayerMoveIntoRoom(event);
         //if(!isAllowTeleportOut(event.getPlayer())) handlePlayerMove(event);
         //Logger.getGlobal().info("Teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
@@ -169,36 +179,53 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
 //Logger.getGlobal().info("In Room: " + room);
         if (room != null) {
             room.silence(event.getPlayer());
-            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                Player player = event.getPlayer();
-                // Turning the head is a move, and a move in a room passes on a player who need not be
-                // there: this one can be on their way out already.
-                if (!player.isOnline() || room.isAwaitingTeleport(player)) {
-                    return;
-                }
-                if (!room.isInside(player.getLocation())) {
-                    // Out of the room before the delay was over: passed on, or moved out some other way.
-                    // Joining in the room hid their chat.
-                    room.unSilence(player);
-                    return;
-                }
-                if (room.isSkipped(player)) {
-                    passOn(room, player);
-                } else {
-                    room.handleEnter(player);
-                }
-            }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
          } else {
-            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                Room second = IntroductionPlugin.getInstance().getSecond();
-                Player player = event.getPlayer();
-                if (!player.isOnline()) {
-                    return;
-                }
-                ((SecondRoom)second).startReminderTask(player);
-                IntroductionChain.continueChain(player);
-            }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
+            // A crash during a reminder leaves its warning screen on the head for good.
+            Room.removeLeftoverOverlay(event.getPlayer());
         }
+        afterJoinDelay(event.getPlayer(), room);
+    }
+
+    /**
+     * The rest of a join, joinDelay later. /intro reload can replace the rooms meanwhile: the new
+     * rooms take the player on then, once they are there.
+     *
+     * @param room the room the player joined in, or null outside the rooms
+     */
+    private static void afterJoinDelay(Player player, @Nullable Room room) {
+        IntroductionPlugin plugin = IntroductionPlugin.getInstance();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            if (plugin.isReloadPending()) {
+                afterJoinDelay(player, room);
+                return;
+            }
+            if (room == null) {
+                ((SecondRoom) plugin.getSecond()).startReminderTask(player);
+                IntroductionChain.continueChain(player);
+                return;
+            }
+            // After a reload, the new room where the player stands.
+            Room current = (room.isUnloaded() ? plugin.getRoom(player.getLocation()) : room);
+            // Turning the head is a move, and a move in a room passes on a player who need not be
+            // there: this one can be on their way out already.
+            if (current != null && current.isAwaitingTeleport(player)) {
+                return;
+            }
+            if (current == null || !current.isInside(player.getLocation())) {
+                // Out of the room before the delay was over: passed on, or moved out some other way.
+                // Joining in the room hid their chat.
+                room.unSilence(player);
+                return;
+            }
+            if (current.isSkipped(player)) {
+                passOn(current, player);
+            } else {
+                current.handleEnter(player);
+            }
+        }, plugin.getConfig().getLong("joinDelay",10));
     }
 
     @EventHandler
@@ -206,6 +233,8 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
         exitAllRooms(event.getPlayer(), Exit.QUIT);
+        IntroductionPlugin.getInstance().getFirst().forgetTeleport(event.getPlayer());
+        IntroductionPlugin.getInstance().getSecond().forgetTeleport(event.getPlayer());
         IntroductionChain.interruptChain(event.getPlayer());
         ((SecondRoom)IntroductionPlugin.getInstance().getSecond()).cancelReminderTask(event.getPlayer());
     }
@@ -227,6 +256,22 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             }
         }
     }*/
+
+    @EventHandler
+    public void dropOwnHeadItem(PlayerDeathEvent event) {
+        // A warning screen's item on the head of a player who dies during a reminder carries
+        // their own head item: that one drops instead.
+        event.getDrops().replaceAll(Room::headItemToRestore);
+        event.getDrops().removeIf(item -> item != null && item.isEmpty());
+    }
+
+    @EventHandler
+    public void blockSpectating(PlayerStartSpectatingEntityEvent event) {
+        // Spectating an entity moves the player along with it, out of the room.
+        if (IntroductionPlugin.getInstance().getRoom(event.getPlayer().getLocation()) != null) {
+            event.setCancelled(true);
+        }
+    }
 
     @EventHandler
     public void blockInventoryOpen(InventoryOpenEvent event) {
