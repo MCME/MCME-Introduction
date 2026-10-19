@@ -267,6 +267,11 @@ public class SecondRoom extends Room {
         }
     }
 
+    /**
+     * Ends a reminder: takes its warning screen off reminderDuration after the pack loaded. A
+     * reminder whose pack fails, or doesn't load within the checks, ends too. Its screen never went
+     * on then, but the player's head item stays saved until the reminder ends.
+     */
     public void startStopReminderTask(Player player) {
         new BukkitRunnable() {
             int rpLoadTime = -1;
@@ -279,19 +284,14 @@ public class SecondRoom extends Room {
                 }
                 attempts++;
                 RpPlayerData data = rpPlayerData.apply(player);
-                if(rpLoadTime == -1) {
-                    if (isRpLoaded(rpPlayerData.apply(player))) {
-                        rpLoadTime = Bukkit.getServer().getCurrentTick();
-                    }
-                } else if(isRpFail(data)) {
+                if(rpLoadTime == -1 && isRpLoaded(data)) {
+                    rpLoadTime = Bukkit.getServer().getCurrentTick();
+                }
+                boolean shown = rpLoadTime != -1 && Bukkit.getServer().getCurrentTick()
+                        > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100);
+                if(shown || isRpFail(data) || attempts > 1000) {
+                    handleOverride(player, false);
                     cancel();
-                } else if(attempts > 1000) {
-                    cancel();
-                } else {
-                    if(Bukkit.getServer().getCurrentTick() > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100)) {
-                        handleOverride(player, false);
-                        cancel();
-                    }
                 }
             }
         }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 20L);

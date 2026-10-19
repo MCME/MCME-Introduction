@@ -47,6 +47,8 @@ public abstract class Room {
     private final Advancement advancement;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
+    // Players whose head item the overlay item has replaced: their item is only in playerItems then.
+    private final Set<UUID> overlaid = new HashSet<>();
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
     private final Set<UUID> fixedPlayers = new HashSet<>();
     private final Map<UUID, Integer> playerEnterTimes = new HashMap<>();
@@ -292,8 +294,8 @@ public abstract class Room {
     /**
      * Decides which item to give back when the camera overlay comes off the player's head again.
      * <p>
-     * Called just before the overlay item replaces what the player wears, by both
-     * {@link #handleEnter} and {@link #handleOverride}. Usually that is the player's own helmet,
+     * Called by {@link #handleEnter} and {@link #handleOverride}, and again just before the
+     * overlay item replaces what the player wears. Usually that is the player's own helmet,
      * or nothing. But an overlay item can be left on a player's head, for example when the server
      * stops while they are in a room. Handing that back would leave them wearing it for good.
      * <p>
@@ -373,9 +375,24 @@ public abstract class Room {
         startOverlayTask(player,overlayItem, inRoom);
     }
 
+    /**
+     * Takes the overlay item off the player's head and gives back the item it replaced.
+     * <p>
+     * Outside the rooms, during a reminder, the player can change their head item meanwhile. So the
+     * saved item goes back only over an overlay item. When the overlay never went on, the player
+     * still has their own item, and the saved one is forgotten. When the player took the overlay
+     * item off, the saved item exists only here, and goes into their inventory.
+     */
     public void removeCameraOverlay(Player player) {
-        //player.getInventory().setItem(EquipmentSlot.HEAD, new ItemStack(Material.AIR));
-        player.getInventory().setItem(EquipmentSlot.HEAD, playerItems.get(player.getUniqueId()));
+        UUID uuid = player.getUniqueId();
+        ItemStack saved = playerItems.get(uuid);
+        if(isOverlayItem(player.getInventory().getItem(EquipmentSlot.HEAD))) {
+            player.getInventory().setItem(EquipmentSlot.HEAD, saved);
+        } else if(overlaid.contains(uuid) && saved != null && !saved.isEmpty()) {
+            player.getInventory().addItem(saved).values()
+                    .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+        }
+        overlaid.remove(uuid);
         stopOverlayTask(player);
     }
 
@@ -400,7 +417,11 @@ public abstract class Room {
 //Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
                 RpPlayerData data = rpPlayerData.apply(player);
                 if(isRpLoaded(data)) {
+                    // What the overlay item replaces comes back: during a reminder the player can
+                    // have changed their head item since it was saved.
+                    playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
                     player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
+                    overlaid.add(player.getUniqueId());
                     if(!chatSent) {
                         sendChat(player);
                     }
@@ -617,7 +638,7 @@ public abstract class Room {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private boolean isOverlayItem(ItemStack item) {
+    boolean isOverlayItem(ItemStack item) {
         ItemMeta meta = item.getItemMeta();
         if(meta != null) {
             EquippableComponent equip = meta.getEquippable();
