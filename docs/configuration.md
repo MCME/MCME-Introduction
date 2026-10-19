@@ -9,7 +9,9 @@ MCME-Introduction reads two files in `plugins/MCME-Introduction/` on each backen
 - **`locations.yml`**: where the rooms are, the welcome text display, and the glowing-item area. The
   plugin never creates it; a server without it has no rooms.
 
-`/intro reload` reads both files again and rebuilds the rooms. Two things need a restart instead:
+`/intro reload` reads both files again and rebuilds the rooms, and tells the sender whether it
+worked; a `locations.yml` that can't be read is an error in the log. Two things need a restart
+instead:
 - the database settings;
 - changed advancement texts (`advancementDisplay`, `advancementDisplays`). They take effect after a
   clean restart; a crash keeps the previous ones until the next clean restart.
@@ -82,7 +84,7 @@ a built-in English text, as it does for a missing `messageRpTimeout`.
 | `actionBarDelay` | `40` | Ticks before the first action bar text. |
 | `actionBarPeriod` | `40` | Ticks between action bar texts. |
 | `advancementKey` | `mcme:intro` | Key of the advancement toast shown on entering the room. Each room needs its own key. |
-| `advancementDisplay` | none | The toast's `display` object, as in an advancement JSON (`icon`, `title`, `description`, …). Without it the room shows no toast. The advancement is taken back after 10 seconds, so the toast can show again. |
+| `advancementDisplay` | none | The toast's `display` object, as in an advancement JSON (`icon`, `title`, `description`, …). Without it, or with one that isn't valid (a warning in the log names its key), the room shows no toast. The advancement is taken back after 10 seconds, so the toast can show again. |
 | `unsilenceDelay` | `20` | Ticks after leaving the rooms before chat comes back. |
 | `roomEnterMoveDelay` | the top-level value | See the top level. |
 | `canIgnore` | `false` | **Has no effect in this version.** A player can always leave a room by stepping left; leaving the compatibility room that way, without confirming, brings the reminders. |
@@ -123,7 +125,7 @@ The compatibility room picks its screen and its text by client:
 | `startBroadcastDelay` | `200` | Ticks after the start before the broadcast. |
 | `initialDelay` | `100` | Ticks after the start before the first tip. |
 | `period` | `300` | Ticks between tips. |
-| `advancementDisplays` | *shipped*: seven tips | One advancement `display` object per tip, shown in order as toasts. Each tip's advancement is taken back after 10 seconds; how long the toast stays on screen is up to the client. |
+| `advancementDisplays` | *shipped*: seven tips | One advancement `display` object per tip, shown in order as toasts. A display that isn't valid is left out, with a warning in the log that names its key (`mcme:introchain<number>`, counting from 0). Each tip's advancement is taken back after 10 seconds; how long the toast stays on screen is up to the client. |
 
 ### `database`: players' `/confirm` choices
 
