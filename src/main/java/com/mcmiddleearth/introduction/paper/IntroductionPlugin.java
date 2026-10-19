@@ -29,6 +29,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -170,10 +171,22 @@ public class IntroductionPlugin extends JavaPlugin {
      * registered advancement until the server stops, and saves it as a file that the next start loads
      * again unless onDisable deleted it. So after /intro reload, or at a start after a crash, the key
      * can be taken already, and registering it again would fail.
+     *
+     * @return null when the advancement is not valid: Paper then skips it without a word, so the
+     *         warning here names it
      */
+    @Nullable
     public static Advancement loadAdvancement(NamespacedKey key, String advancement) {
         Advancement registered = Bukkit.getAdvancement(key);
-        return (registered != null ? registered : Bukkit.getUnsafe().loadAdvancement(key, advancement));
+        if(registered != null) {
+            return registered;
+        }
+        Advancement loaded = Bukkit.getUnsafe().loadAdvancement(key, advancement);
+        if(loaded == null) {
+            getInstance().getLogger().warning("Advancement " + key + " is not valid, so it is left out."
+                    + " Check its display in config.yml.");
+        }
+        return loaded;
     }
 
     public Room getRoom(Location location) {

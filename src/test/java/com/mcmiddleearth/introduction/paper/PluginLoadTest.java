@@ -5,9 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
@@ -47,31 +45,5 @@ class PluginLoadTest extends PluginTestBase {
 
         assertTrue(logged.stream().noneMatch(r -> r.getLevel().intValue() >= Level.WARNING.intValue()),
                 "logged: " + logged.stream().map(LogRecord::getMessage).toList());
-    }
-
-    /** What the plugin logs while the action runs. */
-    private List<LogRecord> logged(Runnable action) {
-        List<LogRecord> records = new ArrayList<>();
-        Handler handler = new Handler() {
-            @Override
-            public void publish(LogRecord record) {
-                records.add(record);
-            }
-
-            @Override
-            public void flush() {
-            }
-
-            @Override
-            public void close() {
-            }
-        };
-        plugin.getLogger().addHandler(handler);
-        try {
-            action.run();
-        } finally {
-            plugin.getLogger().removeHandler(handler);
-        }
-        return records;
     }
 }

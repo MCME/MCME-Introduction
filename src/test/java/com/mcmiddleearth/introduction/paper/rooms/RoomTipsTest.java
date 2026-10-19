@@ -18,9 +18,13 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.stream.IntStream;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * After the rooms a player gets a sequence of tips, as advancement toasts. They belong after the
@@ -119,6 +123,30 @@ class RoomTipsTest extends RoomTestBase {
         server.getScheduler().performTicks(FIRST_TIP + TIP_PERIOD * 2L * tipCount());
 
         assertEquals(allTips(), tipsShown);
+    }
+
+    @Test
+    void aTipWithABrokenDisplayIsLeftOut() {
+        // New tips: the ones registered at the start keep their texts until a restart.
+        List<String> displays = new ArrayList<>(plugin.getConfig().getStringList("introductionChain.advancementDisplays"));
+        int broken = displays.size();
+        displays.add("{\"title\":{\"text\":\"A display cut off\"");
+        displays.add(displays.getFirst());
+        plugin.getConfig().set("introductionChain.advancementDisplays", displays);
+
+        List<LogRecord> logged = logged(() -> {
+            plugin.unloadData();
+            plugin.loadData();
+        });
+        IntroductionChain.startChain(player);
+        server.getScheduler().performTicks(FIRST_TIP + TIP_PERIOD * 2L * displays.size());
+
+        assertTrue(logged.stream().anyMatch(r -> r.getLevel() == Level.WARNING
+                && r.getMessage().contains("mcme:introchain" + broken)), "warned of the broken tip");
+        List<String> shown = IntStream.range(0, displays.size()).filter(i -> i != broken)
+                .mapToObj(i -> "mcme:introchain" + i).toList();
+        assertEquals(shown, tipsShown);
+        assertDoesNotThrow(() -> server.getPluginManager().disablePlugin(plugin), "the shutdown");
     }
 
     /** What /intro reload does: the data is loaded again 20 ticks after it was taken down. */

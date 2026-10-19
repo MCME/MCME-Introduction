@@ -2,6 +2,8 @@ package com.mcmiddleearth.introduction.paper;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import net.kyori.adventure.key.Key;
 import org.bukkit.NamespacedKey;
 import org.bukkit.advancement.Advancement;
@@ -13,10 +15,14 @@ import org.mockbukkit.mockbukkit.util.UnsafeValuesMock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 /**
  * Starts a MockBukkit server with the plugin loaded, for tests that need the whole plugin.
@@ -71,6 +77,32 @@ public abstract class PluginTestBase {
         return (AdvancementServerMock) server;
     }
 
+    /** What the plugin logs while the action runs. */
+    protected List<LogRecord> logged(Runnable action) {
+        List<LogRecord> records = new ArrayList<>();
+        Handler handler = new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                records.add(record);
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        plugin.getLogger().addHandler(handler);
+        try {
+            action.run();
+        } finally {
+            plugin.getLogger().removeHandler(handler);
+        }
+        return records;
+    }
+
     private void start(AdvancementServerMock serverMock) {
         server = MockBukkit.mock(serverMock);
         protocolLibrary = Mockito.mockStatic(ProtocolLibrary.class);
@@ -80,9 +112,9 @@ public abstract class PluginTestBase {
 
     /**
      * Keeps advancements the way Paper 26.2 does. Loading one whose key is already registered
-     * fails. A loaded advancement is saved as a file when asked to persist; removing an advancement
-     * only deletes that file and leaves it registered. A data reload keeps only the advancements
-     * that have a file.
+     * fails, and loading one that isn't valid JSON returns null. A loaded advancement is saved as
+     * a file when asked to persist; removing an advancement only deletes that file and leaves it
+     * registered. A data reload keeps only the advancements that have a file.
      */
     public static final class AdvancementServerMock extends ServerMock {
 
@@ -101,6 +133,12 @@ public abstract class PluginTestBase {
                 NamespacedKey id = NamespacedKey.fromString(key.asString());
                 if (registered.containsKey(id)) {
                     throw new IllegalArgumentException("Advancement " + id + " already exists");
+                }
+                // Paper skips an advancement it can't read, without a word, and returns null.
+                try {
+                    JsonParser.parseString(advancement);
+                } catch (JsonParseException invalid) {
+                    return null;
                 }
                 registered.put(id, mockAdvancement(id));
                 if (persist) {

@@ -87,8 +87,12 @@ public class IntroductionChain {
 //Logger.getGlobal().info("Key: "+key);
                 //NamespacedKey key2 = NamespacedKey.fromString(advancementKey + (char)(64+i));
 //Logger.getGlobal().info("Key2: "+key2);
-                advancements.add(IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey + i),
-                        "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}"));
+                Advancement tip = IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey + i),
+                        "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
+                // A tip that isn't valid is left out; loadAdvancement logged it.
+                if(tip != null) {
+                    advancements.add(tip);
+                }
             }
         }
         // The tips go on where they were, after the initial delay.
