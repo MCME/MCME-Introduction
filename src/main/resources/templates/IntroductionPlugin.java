@@ -4,7 +4,9 @@ import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
 import com.velocitypowered.api.event.ResultedEvent;
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
+import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
@@ -58,7 +60,8 @@ public final class IntroductionPlugin {
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
         proxyServer.getChannelRegistrar().register(MinecraftChannelIdentifier.from(com.mcmiddleearth.introduction.paper.IntroductionPlugin.CHANNEL));
-        logger.info("Registering VPacketEvents listener…");
+        logger.info("Listening on " + com.mcmiddleearth.introduction.paper.IntroductionPlugin.CHANNEL
+                + " for players in the introduction rooms, whose proxy chat is hidden.");
     }
 
     @Subscribe
@@ -68,9 +71,25 @@ public final class IntroductionPlugin {
         if(silenced.contains(event.getPlayer().getUniqueId())) {
             if (packet instanceof SystemChatPacket) {
                 event.setResult(ResultedEvent.GenericResult.denied());
-                logger.info("Chat blocked!");
+                logger.debug("Chat blocked!");
             }
         }
+    }
+
+    /**
+     * The backend's "exit" is sent while the player quits it, so it may never arrive: a player who
+     * left the rooms by leaving the server would stay silenced. A player is in no room on the
+     * proxy's word, so leaving the proxy or arriving on a server ends the silence. A backend with
+     * rooms sends "enter" again when the player is put in one there.
+     */
+    @Subscribe
+    public void onDisconnect(DisconnectEvent event) {
+        silenced.remove(event.getPlayer().getUniqueId());
+    }
+
+    @Subscribe
+    public void onServerConnected(ServerConnectedEvent event) {
+        silenced.remove(event.getPlayer().getUniqueId());
     }
 
     @Subscribe
@@ -82,16 +101,28 @@ public final class IntroductionPlugin {
         if (!(event.getSource() instanceof ServerConnection backend)) {
             return;
         }
-        ByteArrayDataInput in = ByteStreams.newDataInput(event.getData());
-        String subchannel = in.readUTF();
-        UUID uuid = UUID.fromString(in.readUTF());
-        Player player = proxyServer.getPlayer(uuid).orElse(null);
-        if(subchannel.equals("enter") && player != null) {
+        String subchannel;
+        UUID uuid;
+        try {
+            ByteArrayDataInput in = ByteStreams.newDataInput(event.getData());
+            subchannel = in.readUTF();
+            uuid = UUID.fromString(in.readUTF());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            logger.warn("Ignored a malformed " + com.mcmiddleearth.introduction.paper.IntroductionPlugin.CHANNEL
+                    + " message from " + backend.getServerInfo().getName() + ": " + e.getMessage());
+            return;
+        }
+        // A backend speaks only for the player whose connection carries the message.
+        Player player = backend.getPlayer();
+        if(!uuid.equals(player.getUniqueId())) {
+            return;
+        }
+        if(subchannel.equals("enter")) {
             silenced.add(uuid);
             logger.info("silenced: "+player.getUsername());
         } else if(subchannel.equals("exit")) {
             silenced.remove(uuid);
-            logger.info("un-silenced: "+(player!=null?player.getUsername():"null"));
+            logger.info("un-silenced: "+player.getUsername());
         }
     }
 
