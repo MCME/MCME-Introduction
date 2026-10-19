@@ -379,29 +379,35 @@ public abstract class Room {
      *         a double click on /confirm: the black screen and the tips must not come twice
      */
     public boolean teleport(Player player, Room previous, Room next, Exit how) {
+        // Read before the player waits for the move on: a typo in tpTransitionTimes throws here.
+        Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])*50L),
+                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[1])*50L),
+                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[2])*50L));
+        long delay = Long.parseLong(tpTransitionTimes[0]);
 //Logger.getGlobal().info("SET awaiting Teleport");
         if(!previous.awaitingTeleport.add(player.getUniqueId())) {
             return false;
         }
 //Logger.getGlobal().info("test is awaiting: "+isAwaitingTeleport(player));
 //Logger.getGlobal().info("Second test: "+awaitingTeleport.contains(player.getUniqueId()));
-        Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])*50L),
-                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[1])*50L),
-                                        Duration.ofMillis(Integer.parseInt(tpTransitionTimes[2])*50L));
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
         blackScreenTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
             blackScreenTasks.remove(player.getUniqueId());
-            if (!player.isOnline()) {
-                // Quit during the black screen: quitting took the player out of the room already, and
-                // they stay where they were until they come back.
+            try {
+                if (!player.isOnline()) {
+                    // Quit during the black screen: quitting took the player out of the room already,
+                    // and they stay where they were until they come back.
+                    return;
+                }
+                previous.handleExit(player, true, how);
+                //RoomListener.allowTeleportOut(player);
+                player.teleport(tpTarget);
+            } finally {
+                // Also when the teleport fails, to a world that isn't loaded say: the room ignores
+                // the moves of a player who waits for the move on, so they would be frozen.
                 previous.awaitingTeleport.remove(player.getUniqueId());
-                return;
             }
-            previous.handleExit(player, true, how);
-            //RoomListener.allowTeleportOut(player);
-            player.teleport(tpTarget);
-            previous.awaitingTeleport.remove(player.getUniqueId());
 //Logger.getGlobal().info("UNSET awaiting teleport");
             if (next != null) {
                 next.handleEnter(player);
@@ -411,8 +417,15 @@ public abstract class Room {
               IntroductionChain.startChain(player);
 //                }, unsilenceDelay);
             }
-        },Long.parseLong(tpTransitionTimes[0])));
+        }, delay));
         return true;
+    }
+
+    /**
+     * Forgets that a player who quits was on the way out of the room.
+     */
+    public void forgetTeleport(Player player) {
+        awaitingTeleport.remove(player.getUniqueId());
     }
 
     /**

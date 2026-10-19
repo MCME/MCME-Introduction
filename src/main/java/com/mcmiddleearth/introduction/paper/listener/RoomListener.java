@@ -216,6 +216,8 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
         IntroductionPlugin.getInstance().getFirst().handleOverride(event.getPlayer(), false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(event.getPlayer(), false);
         exitAllRooms(event.getPlayer(), Exit.QUIT);
+        IntroductionPlugin.getInstance().getFirst().forgetTeleport(event.getPlayer());
+        IntroductionPlugin.getInstance().getSecond().forgetTeleport(event.getPlayer());
         IntroductionChain.interruptChain(event.getPlayer());
         ((SecondRoom)IntroductionPlugin.getInstance().getSecond()).cancelReminderTask(event.getPlayer());
     }
