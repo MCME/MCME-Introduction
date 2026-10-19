@@ -1,5 +1,6 @@
 package com.mcmiddleearth.introduction.paper.listener;
 
+import com.destroystokyo.paper.event.player.PlayerStartSpectatingEntityEvent;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
@@ -77,6 +78,13 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
     @EventHandler(priority = EventPriority.NORMAL)
     public void playerTeleport(PlayerTeleportEvent event){
 //Logger.getGlobal().info("Player teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
+        // The spectator menu's "teleport to player" (the number keys) would take the player out of
+        // the room past its screen.
+        if(event.getCause() == PlayerTeleportEvent.TeleportCause.SPECTATE
+                && IntroductionPlugin.getInstance().getRoom(event.getFrom()) != null) {
+            event.setCancelled(true);
+            return;
+        }
         handlePlayerMoveIntoRoom(event);
         //if(!isAllowTeleportOut(event.getPlayer())) handlePlayerMove(event);
         //Logger.getGlobal().info("Teleport event for "+event.getPlayer().getName()+" cancelled: "+event.isCancelled());
@@ -229,6 +237,14 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             }
         }
     }*/
+
+    @EventHandler
+    public void blockSpectating(PlayerStartSpectatingEntityEvent event) {
+        // Spectating an entity moves the player along with it, out of the room.
+        if (IntroductionPlugin.getInstance().getRoom(event.getPlayer().getLocation()) != null) {
+            event.setCancelled(true);
+        }
+    }
 
     @EventHandler
     public void blockInventoryOpen(InventoryOpenEvent event) {
