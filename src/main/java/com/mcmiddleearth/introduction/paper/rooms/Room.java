@@ -209,6 +209,13 @@ public abstract class Room {
     }
 
     public boolean handleEnter(Player player) {
+        // Moved here from the other room without walking on, by a teleport from staff say: out of
+        // that room first, or its spectator mode would be the mode this room gives back.
+        for(Room other : List.of(IntroductionPlugin.getInstance().getFirst(), IntroductionPlugin.getInstance().getSecond())) {
+            if(other != this && other.isEntered(player)) {
+                other.handleExit(player, true, Exit.LEFT);
+            }
+        }
         IntroductionPlugin.getInstance().getFirst().handleOverride(player, false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(player, false);
         if(!playerItems.containsKey(player.getUniqueId())) {
@@ -223,7 +230,7 @@ public abstract class Room {
             // Tips belong after the rooms; leaving the last room starts them anew.
             IntroductionChain.interruptChain(player);
             silence(player);
-            playerGamemodes.put(player.getUniqueId(), player.getGameMode());
+            playerGamemodes.put(player.getUniqueId(), gameModeToRestore(player));
             player.setGameMode(GameMode.SPECTATOR);
             Location loc = player.getLocation();
             /*loc.setPitch(pitch);
@@ -241,7 +248,7 @@ public abstract class Room {
                 RoomListener.cancelAllUnsilenceTasks(player);
                 IntroductionChain.interruptChain(player);
                 silence(player);
-                playerGamemodes.put(player.getUniqueId(), player.getGameMode());
+                playerGamemodes.put(player.getUniqueId(), gameModeToRestore(player));
                 player.setGameMode(GameMode.SPECTATOR);
                 /*Location loc = player.getLocation();
                 loc.setPitch(pitch);
@@ -253,6 +260,15 @@ public abstract class Room {
             }
         }
         return false;
+    }
+
+    /**
+     * The game mode the player gets back on leaving the room. A player who comes in spectator mode
+     * normally has it from a room, saved there by a crash for example, so they get the server's
+     * default mode instead. That includes staff who fly into a room in spectator mode.
+     */
+    private static GameMode gameModeToRestore(Player player) {
+        return (player.getGameMode() == GameMode.SPECTATOR ? Bukkit.getDefaultGameMode() : player.getGameMode());
     }
 
     private void recordEnter(Player player) {
