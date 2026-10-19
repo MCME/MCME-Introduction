@@ -19,9 +19,9 @@ import org.slf4j.Logger;
 
 import com.google.inject.Inject;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 @Plugin(
@@ -34,7 +34,8 @@ public final class IntroductionPlugin {
 
     private final ProxyServer proxyServer;
     private final Logger logger;
-    private final Set<UUID> silenced = new HashSet<>();
+    // Written on Velocity's event threads, read on Netty's threads for every packet sent.
+    private final Set<UUID> silenced = ConcurrentHashMap.newKeySet();
 
     /**
      * Velocity constructs this class through Guice, so the constructor must carry an

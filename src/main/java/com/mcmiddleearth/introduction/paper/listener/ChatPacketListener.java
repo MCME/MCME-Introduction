@@ -8,14 +8,15 @@ import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import org.bukkit.entity.Player;
 
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 public class ChatPacketListener extends PacketAdapter {
 
-    private static final Set<UUID> silenced = new HashSet<>();
+    // Written on the main thread, read on Netty's threads for every packet sent.
+    private static final Set<UUID> silenced = ConcurrentHashMap.newKeySet();
 
     // Only system chat. Since 1.21.5 the client numbers the player chat messages (Play.Server.CHAT)
     // it receives and disconnects when one is missing, so dropping one disconnects the player at
