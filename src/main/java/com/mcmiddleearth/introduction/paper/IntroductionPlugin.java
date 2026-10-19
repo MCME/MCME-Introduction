@@ -30,6 +30,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
@@ -142,7 +143,11 @@ public class IntroductionPlugin extends JavaPlugin {
         YamlConfiguration locationConfig = new YamlConfiguration();
         try {
             locationConfig.load(new File(getDataFolder(), "locations.yml"));
-        } catch (IOException | InvalidConfigurationException ignore) {}
+        } catch (FileNotFoundException ignore) {
+            // A server without rooms.
+        } catch (IOException | InvalidConfigurationException e) {
+            getLogger().severe("locations.yml can't be read, so this server has no rooms: " + e.getMessage());
+        }
         first = new FirstRoom(getConfig().getConfigurationSection("firstRoom"),
                               locationConfig.getConfigurationSection("firstRoom"));
         second = new SecondRoom(getConfig().getConfigurationSection("secondRoom"),
