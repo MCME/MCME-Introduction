@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -192,19 +194,28 @@ class RoomHeadItemTest extends RoomTestBase {
     }
 
     @Test
-    void noReminderFromBeforeAReloadComesAfterIt() {
+    void theRemindersCarryOnInTheNewRoomAfterAReload() {
         packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
         wear(new ItemStack(Material.DIAMOND_HELMET));
         reminder().startReminderTask(player);
         server.getScheduler().performTicks(reminderDuration() + 40);
 
+        // A reload with a new warning screen: the old room's would show that its reminders run on.
+        String newScreen = "minecraft:gui/overlay/warning_after_reload";
+        plugin.getConfig().set("secondRoom.overlayWarningVersion", newScreen);
         plugin.unloadData();
         plugin.loadData();
 
+        Set<String> screens = new HashSet<>();
         for (long tick = 1; tick <= plugin.getConfig().getLong("reminderPeriod") + 40; tick++) {
             server.getScheduler().performOneTick();
-            assertEquals(Material.DIAMOND_HELMET, head().getType(), "the old reminder came again, tick " + tick);
+            if (Room.isOverlayItem(head())) {
+                screens.add(head().getItemMeta().getEquippable().getCameraOverlay().asString());
+            }
         }
+        assertEquals(Set.of(newScreen), screens, "warning screens after the reload");
+        server.getScheduler().performTicks(reminderDuration() + 40);
+        assertEquals(Material.DIAMOND_HELMET, head().getType());
     }
 
     @Test

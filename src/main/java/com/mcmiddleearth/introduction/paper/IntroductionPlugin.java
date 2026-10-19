@@ -162,6 +162,8 @@ public class IntroductionPlugin extends JavaPlugin {
         // It is registered here rather than in onEnable because unloadData() unregisters all listeners.
         Bukkit.getPluginManager().registerEvents(new ConfirmPreLoginListener(), this);
         FlowEvents.start(getPluginMeta().getVersion(), ((SecondRoom) second).getSupportedVersions());
+        // After /intro reload: the reminders the old rooms stopped go on.
+        ((SecondRoom) second).resumeReminders();
     }
 
     public static IntroductionPlugin getInstance(){return instance;}

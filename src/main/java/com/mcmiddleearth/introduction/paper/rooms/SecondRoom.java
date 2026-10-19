@@ -17,10 +17,12 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -62,6 +64,8 @@ public class SecondRoom extends Room {
     private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
     // The task that takes a reminder's warning screen off again.
     private final Map<UUID, BukkitTask> stopReminderTasks = new HashMap<>();
+    // Players whose reminders /intro reload stopped: the new compatibility room carries them on.
+    private static final Set<UUID> resumeAfterLoad = new HashSet<>();
 
     public SecondRoom(ConfigurationSection config, ConfigurationSection locationConfig) {
         super(config, locationConfig);
@@ -107,12 +111,35 @@ public class SecondRoom extends Room {
 
     @Override
     public void unload() {
-        // A reload builds new rooms: the reminders of this one must not come again.
+        // A reload builds new rooms: the reminders of this one must not come again, but the new
+        // room carries them on.
+        reminderTasks.forEach((uuid, task) -> {
+            if(!task.isCancelled()) {
+                resumeAfterLoad.add(uuid);
+            }
+        });
+        resumeAfterLoad.addAll(stopReminderTasks.keySet());
         reminderTasks.values().forEach(BukkitTask::cancel);
         reminderTasks.clear();
         stopReminderTasks.values().forEach(BukkitTask::cancel);
         stopReminderTasks.clear();
         super.unload();
+    }
+
+    /**
+     * After /intro reload: the reminders the old room stopped go on in this one, with its texts,
+     * from the next reminderPeriod.
+     */
+    public void resumeReminders() {
+        long reminderPeriod = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod", 600);
+        resumeAfterLoad.forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if(player != null) {
+                reminderTasks.put(uuid, Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                        () -> startReminderTask(player), reminderPeriod));
+            }
+        });
+        resumeAfterLoad.clear();
     }
 
     @Override
