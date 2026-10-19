@@ -22,6 +22,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.advancement.Advancement;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -31,6 +32,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Level;
 
 /**
  *
@@ -48,6 +50,9 @@ public class IntroductionPlugin extends JavaPlugin {
     private ConfirmDataManager confirmDataManager;
 
     private FlowLog flowLog = FlowLog.disabled();
+
+    // From /intro reload until its delayed load has run.
+    private boolean reloadPending = false;
 
     public static final String CHANNEL = "mcme:intro";
 
@@ -102,6 +107,33 @@ public class IntroductionPlugin extends JavaPlugin {
         IntroductionChain.unload();
         FlowEvents.stop();
         flowLog.close();
+    }
+
+    /**
+     * /intro reload: takes the rooms, the tips and the listeners down, and builds them again from
+     * config.yml and locations.yml a second later. Tells the sender how it went; a reload while one
+     * is pending is ignored, as it would load everything twice.
+     */
+    public void reload(CommandSender sender) {
+        if(reloadPending) {
+            sendErrorMessage(sender, "A reload is running already.");
+            return;
+        }
+        sendInfoMessage(sender, "Reloading config.yml and locations.yml...");
+        unloadData();
+        reloadPending = true;
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            try {
+                reloadConfig();
+                loadData();
+                sendInfoMessage(sender, "Reload done.");
+            } catch(RuntimeException e) {
+                getLogger().log(Level.SEVERE, "/intro reload failed: the rooms are off until a reload works.", e);
+                sendErrorMessage(sender, "Reload failed: see the console.");
+            } finally {
+                reloadPending = false;
+            }
+        }, 20);
     }
 
     public void loadData() {
@@ -169,11 +201,11 @@ public class IntroductionPlugin extends JavaPlugin {
 
     private static String prefix = "[MCME-Intro] ";
 
-    public static void sendInfoMessage(Player player, String message) {
-        player.sendMessage(Component.text(prefix+message).color(NamedTextColor.AQUA).insertion(IntroductionPlugin.CHANNEL));
+    public static void sendInfoMessage(CommandSender sender, String message) {
+        sender.sendMessage(Component.text(prefix+message).color(NamedTextColor.AQUA).insertion(IntroductionPlugin.CHANNEL));
     }
-    public static void sendErrorMessage(Player player, String message) {
-        player.sendMessage(Component.text(prefix+message).color(NamedTextColor.RED).insertion(IntroductionPlugin.CHANNEL));
+    public static void sendErrorMessage(CommandSender sender, String message) {
+        sender.sendMessage(Component.text(prefix+message).color(NamedTextColor.RED).insertion(IntroductionPlugin.CHANNEL));
     }
 
     // Overloads to send formatted Components loaded from config (JSON)
