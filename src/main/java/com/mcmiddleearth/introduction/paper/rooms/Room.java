@@ -60,6 +60,8 @@ public abstract class Room {
     private final Map<UUID, BukkitTask> actionBarTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> overlayTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> unsilenceTasks = new HashMap<>();
+    // The move on at the end of the black screen, for players this room teleports.
+    private final Map<UUID, BukkitTask> blackScreenTasks = new HashMap<>();
 
     // Resource pack related messages (loaded from config JSON)
     private final Component rpFailureMessage;
@@ -148,6 +150,13 @@ public abstract class Room {
         // The advancement stays registered: the next Room with this key picks it up again.
         // See removeAdvancement().
         releaseHeadItems();
+        // After a reload new rooms take over: this room's tasks must not run on with its players.
+        // One in the black screen stays where they are, and enters the new room at their next move.
+        for(Map<UUID, BukkitTask> tasks : List.of(actionBarTasks, overlayTasks, unsilenceTasks, blackScreenTasks)) {
+            tasks.values().forEach(BukkitTask::cancel);
+            tasks.clear();
+        }
+        awaitingTeleport.clear();
     }
 
     /**
@@ -377,7 +386,8 @@ public abstract class Room {
                                         Duration.ofMillis(Integer.parseInt(tpTransitionTimes[2])*50L));
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
-        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+        blackScreenTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+            blackScreenTasks.remove(player.getUniqueId());
             if (!player.isOnline()) {
                 // Quit during the black screen: quitting took the player out of the room already, and
                 // they stay where they were until they come back.
@@ -397,7 +407,7 @@ public abstract class Room {
               IntroductionChain.startChain(player);
 //                }, unsilenceDelay);
             }
-        },Long.parseLong(tpTransitionTimes[0]));
+        },Long.parseLong(tpTransitionTimes[0])));
     }
 
     /**
