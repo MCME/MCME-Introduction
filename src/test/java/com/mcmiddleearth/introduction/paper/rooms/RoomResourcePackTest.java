@@ -2,7 +2,7 @@ package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
-import com.mcmiddleearth.introduction.paper.PluginTestBase;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A room's camera overlay needs the resource pack, so a room waits for the pack before it shows the
  * overlay and its chat text. When no pack is offered at all, the chat text comes on its own.
  */
-class RoomResourcePackTest extends PluginTestBase {
+class RoomResourcePackTest extends RoomTestBase {
 
     private Function<Player, RpPlayerData> realPackStatus;
     private final RpPlayerData packStatus = new RpPlayerData();
@@ -39,7 +39,14 @@ class RoomResourcePackTest extends PluginTestBase {
         plugin.getConfig().set("firstRoom.advancementDisplay", null);
         plugin.unloadData();
         plugin.loadData();
-        player = server.addPlayer();
+        // The flow log records the client brand, which PlayerMock does not implement.
+        player = new PlayerMock(server, "Newcomer") {
+            @Override
+            public String getClientBrandName() {
+                return "vanilla";
+            }
+        };
+        server.addPlayer(player);
     }
 
     @AfterEach
@@ -87,7 +94,7 @@ class RoomResourcePackTest extends PluginTestBase {
         };
         server.addPlayer(vanilla);
         plugin.getFirst().handleEnter(vanilla);
-        plugin.getFirst().handleExit(vanilla, true);
+        plugin.getFirst().handleExit(vanilla, true, Exit.WALKED);
         plugin.getSecond().handleEnter(vanilla);
 
         server.getScheduler().performTicks(1200);
@@ -98,7 +105,7 @@ class RoomResourcePackTest extends PluginTestBase {
         assertNotNull(warning, "the version warning was sent");
         assertTrue(PlainTextComponentSerializer.plainText().serialize(warning).contains("/confirm ignore"));
         assertNull(vanilla.nextComponentMessage(), "the warning comes once");
-        plugin.getSecond().handleExit(vanilla, false);
+        plugin.getSecond().handleExit(vanilla, false, Exit.LEFT);
     }
 
     private static void assertWelcomeText(Component message) {

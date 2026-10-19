@@ -4,6 +4,8 @@ import com.mcmiddleearth.architect.serverResoucePack.RpManager;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import net.kyori.adventure.text.Component;
@@ -15,12 +17,41 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class SecondRoom extends Room {
+
+    /**
+     * Which compatibility warning a client gets: each has its own picture in config.yml.
+     */
+    public enum Warning {
+        /** A vanilla client on a version that is not supported: overlayWarningVersion. */
+        VERSION,
+        /** Forge, NeoForge, LiteLoader or OptiFine: overlayWarningModded. */
+        MODDED,
+        /** Fabric with MCME's marker mod, on a version that is not supported: overlayWarningMcme. */
+        MCME,
+        /** Fabric without MCME's marker mod: overlayWarningMissingMod. */
+        MISSING_MOD;
+
+        /** The warning's name in the flow log. */
+        public String key() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    // Where the room reads a player's client version (ViaVersion) and whether the client has MCME's
+    // marker mod (MCME-Architect). Tests replace them: neither plugin runs in tests.
+    static Function<Player, ProtocolVersion> clientVersion = player -> Via.getAPI().getPlayerProtocolVersion(player);
+    static Predicate<Player> mcmeMarker = RpManager::isSodiumClient;
 
     private final NamespacedKey overlayWarningVersion, overlayWarningModded, overlayWarningMcme, overlayWarningMissingMod;
     private final Component messageUnsupportedVanilla, messageShaders, messageOptifine, messageUnsupportedModded,
@@ -29,7 +60,12 @@ public class SecondRoom extends Room {
     // Client versions that get no compatibility warning, from supportedVersions in config.yml.
     private final List<String> supportedVersions;
 
+    // Each player's reminder: the repeating task, or the delayed start after leaving the room.
     private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
+    // The task that takes a reminder's warning screen off again.
+    private final Map<UUID, BukkitTask> stopReminderTasks = new HashMap<>();
+    // Players whose reminders /intro reload stopped: the new compatibility room carries them on.
+    private static final Set<UUID> resumeAfterLoad = new HashSet<>();
 
     public SecondRoom(ConfigurationSection config, ConfigurationSection locationConfig) {
         super(config, locationConfig);
@@ -62,19 +98,54 @@ public class SecondRoom extends Room {
     }
 
     @Override
-    public void teleport(Player player, Room previous, Room next) {
-        super.teleport(player, previous, next);
+    public boolean teleport(Player player, Room previous, Room next, Exit how) {
+        if(!super.teleport(player, previous, next, how)) {
+            return false;
+        }
         long reminederDelay = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
-        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
-                                           ()-> startReminderTask(player), reminederDelay);
+        cancelReminderTask(player);
+        reminderTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                                           ()-> startReminderTask(player), reminederDelay));
+        return true;
+    }
+
+    @Override
+    public void unload() {
+        // A reload builds new rooms: the reminders of this one must not come again, but the new
+        // room carries them on.
+        reminderTasks.forEach((uuid, task) -> {
+            if(!task.isCancelled()) {
+                resumeAfterLoad.add(uuid);
+            }
+        });
+        resumeAfterLoad.addAll(stopReminderTasks.keySet());
+        reminderTasks.values().forEach(BukkitTask::cancel);
+        reminderTasks.clear();
+        stopReminderTasks.values().forEach(BukkitTask::cancel);
+        stopReminderTasks.clear();
+        super.unload();
+    }
+
+    /**
+     * After /intro reload: the reminders the old room stopped go on in this one, with its texts,
+     * from the next reminderPeriod.
+     */
+    public void resumeReminders() {
+        long reminderPeriod = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod", 600);
+        resumeAfterLoad.forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if(player != null) {
+                reminderTasks.put(uuid, Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                        () -> startReminderTask(player), reminderPeriod));
+            }
+        });
+        resumeAfterLoad.clear();
     }
 
     @Override
     public boolean isSkipped(Player player) {
         ConfirmDataManager dataManager = IntroductionPlugin.getInstance().getConfirmDataManager();
-        if(isSupportedVersion(player)
-                    && ((!isForge(player) && !isFabric(player))
-                        || (isFabric(player) && isMcmeMarker(player)))) {
+        if(isCompatible(player)) {
             //vanilla or mcme sodium installer
 //Logger.getGlobal().info("vanilla or mcme sodium installer: forge: "+isForge(player)+" fabric: "+isFabric(player)+" marker: "+isMcmeMarker(player));
 //Logger.getGlobal().info("Client Brand: "+player.getClientBrandName());
@@ -90,19 +161,43 @@ public class SecondRoom extends Room {
         }
     }
 
+    /**
+     * Whether the client needs nothing from the player: a supported version, and vanilla or
+     * Fabric with MCME's marker mod.
+     */
+    public boolean isCompatible(Player player) {
+        return isSupportedVersion(player)
+                && ((!isForge(player) && !isFabric(player))
+                    || (isFabric(player) && isMcmeMarker(player)));
+    }
+
     @Override
     public NamespacedKey selectCameraOverlay(Player player) {
+        return switch(getWarning(player)) {
+            case MODDED -> overlayWarningModded;
+            case MCME -> overlayWarningMcme;
+            case MISSING_MOD -> overlayWarningMissingMod;
+            case VERSION -> overlayWarningVersion;
+        };
+    }
+
+    public Warning getWarning(Player player) {
         if(isForge(player)) {
-            return overlayWarningModded;
+            return Warning.MODDED;
         } else if(isFabric(player)) {
-            if(isMcmeMarker(player)) {
-                return overlayWarningMcme;
-            } else {
-                return overlayWarningMissingMod;
-            }
+            return (isMcmeMarker(player) ? Warning.MCME : Warning.MISSING_MOD);
         } else {
-            return overlayWarningVersion;
+            return Warning.VERSION;
         }
+    }
+
+    @Override
+    public String getFlowName() {
+        return "compatibility";
+    }
+
+    public List<String> getSupportedVersions() {
+        return supportedVersions;
     }
 
     @Override
@@ -136,7 +231,11 @@ public class SecondRoom extends Room {
     }
 
     public boolean isSupportedVersion(Player player) {
-        return isSupportedVersion(Via.getAPI().getPlayerProtocolVersion(player));
+        return isSupportedVersion(getClientVersion(player));
+    }
+
+    public ProtocolVersion getClientVersion(Player player) {
+        return clientVersion.apply(player);
     }
 
     /**
@@ -161,21 +260,29 @@ public class SecondRoom extends Room {
     }
 
     public boolean isMcmeMarker(Player player) {
-        return RpManager.isSodiumClient(player);
+        return mcmeMarker.test(player);
     }
 
     private void sendMessage(Player player, Component message) {
-        player.sendMessage(message);
+        // Its parts carry the plugin's insertion, but only the whole message's gets past the chat
+        // filter of a player in a room.
+        player.sendMessage(message.insertion(IntroductionPlugin.CHANNEL));
         //player.sendActionBar(Component.text("1.21.4         ").append(Component.text(".").color(NamedTextColor.BLACK)));
     }
 
     public void startReminderTask(Player player) {
 //Logger.getGlobal().info("start reminder task for "+player.getName());
-        if(isSkipped(player)) {
+        // Started with a delay, by leaving the room or by joining: the player can have left since,
+        // or a reload replaced this room.
+        if(isUnloaded() || !player.isOnline() || isSkipped(player)) {
             return;
         }
         cancelReminderTask(player);
         long reminderPeriod =  IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
+        // In a room the room's own screen is on, and the reminder shows nothing.
+        if(!IntroductionPlugin.getInstance().isInsideRoom(player)) {
+            FlowEvents.reminder(player, getWarning(player));
+        }
         handleOverride(player, true);
         startStopReminderTask(player);
         BukkitTask task = new BukkitRunnable() {
@@ -188,6 +295,7 @@ public class SecondRoom extends Room {
                     return;
                 }
                 if (isRpLoaded(rpPlayerData.apply(player)) ){ //!IntroductionPlugin.getInstance().isInsideRoom(player)) {
+                    FlowEvents.reminder(player, getWarning(player));
                     handleOverride(player, true);
                     startStopReminderTask(player);
                 }
@@ -206,34 +314,43 @@ public class SecondRoom extends Room {
         }
     }
 
+    /**
+     * Ends a reminder: takes its warning screen off reminderDuration after the pack loaded. A
+     * reminder whose pack fails, or doesn't load within the checks, ends too. Its screen never went
+     * on then, but the player's head item stays saved until the reminder ends.
+     */
     public void startStopReminderTask(Player player) {
-        new BukkitRunnable() {
+        BukkitTask previous = stopReminderTasks.remove(player.getUniqueId());
+        if(previous != null) {
+            previous.cancel();
+        }
+        stopReminderTasks.put(player.getUniqueId(), new BukkitRunnable() {
             int rpLoadTime = -1;
             int attempts = 0;
             @Override
             public void run() {
                 if(!player.isOnline() || IntroductionPlugin.getInstance().isInsideRoom(player)) {
-                    cancel();
+                    end();
                     return;
                 }
                 attempts++;
                 RpPlayerData data = rpPlayerData.apply(player);
-                if(rpLoadTime == -1) {
-                    if (isRpLoaded(rpPlayerData.apply(player))) {
-                        rpLoadTime = Bukkit.getServer().getCurrentTick();
-                    }
-                } else if(isRpFail(data)) {
-                    cancel();
-                } else if(attempts > 1000) {
-                    cancel();
-                } else {
-                    if(Bukkit.getServer().getCurrentTick() > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100)) {
-                        handleOverride(player, false);
-                        cancel();
-                    }
+                if(rpLoadTime == -1 && isRpLoaded(data)) {
+                    rpLoadTime = Bukkit.getServer().getCurrentTick();
+                }
+                boolean shown = rpLoadTime != -1 && Bukkit.getServer().getCurrentTick()
+                        > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100);
+                if(shown || isRpFail(data) || attempts > 1000) {
+                    handleOverride(player, false);
+                    end();
                 }
             }
-        }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 20L);
+
+            private void end() {
+                cancel();
+                stopReminderTasks.remove(player.getUniqueId());
+            }
+        }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 20L));
     }
 
 }

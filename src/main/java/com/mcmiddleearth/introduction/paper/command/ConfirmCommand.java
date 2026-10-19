@@ -2,6 +2,8 @@ package com.mcmiddleearth.introduction.paper.command;
 
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.tree.LiteralCommandNode;
@@ -25,8 +27,9 @@ public class ConfirmCommand {
                         .executes(ctx -> {
                             Player player =  (Player) ctx.getSource().getSender();
                             SecondRoom second = (SecondRoom) IntroductionPlugin.getInstance().getSecond();
+                            FlowEvents.confirm(player, "optifine", IntroductionPlugin.getInstance().isInsideRoom(player));
                             if(second.isInside(player.getLocation())) {
-                                second.teleport(player, second, null);
+                                second.teleport(player, second, null, Exit.CONFIRMED);
                             } else {
                                 second.handleOverride(player, false);
                             }
@@ -44,8 +47,9 @@ public class ConfirmCommand {
                         .executes(ctx -> {
                             Player player =  (Player) ctx.getSource().getSender();
                             SecondRoom second = (SecondRoom) IntroductionPlugin.getInstance().getSecond();
+                            FlowEvents.confirm(player, "ignore", IntroductionPlugin.getInstance().isInsideRoom(player));
                             if(second.isInside(player.getLocation())) {
-                                second.teleport(player, second, null);
+                                second.teleport(player, second, null, Exit.CONFIRMED);
                             } else {
                                 second.handleOverride(player, false);
                             }
@@ -54,8 +58,11 @@ public class ConfirmCommand {
                             return Command.SINGLE_SUCCESS;
                         }))
                 .then(Commands.literal("reset")
+                        // The sender's own choices: the console and command blocks have none.
+                        .requires(sender -> sender.getSender() instanceof Player)
                         .executes(ctx -> {
                             Player player =  (Player) ctx.getSource().getSender();
+                            FlowEvents.confirm(player, "reset", IntroductionPlugin.getInstance().isInsideRoom(player));
                             ConfirmDataManager mgr = IntroductionPlugin.getInstance().getConfirmDataManager();
                             mgr.resetConfirmations(player.getUniqueId().toString());
                             IntroductionPlugin.sendInfoMessage(player,"Your confirmation state has been reset.");

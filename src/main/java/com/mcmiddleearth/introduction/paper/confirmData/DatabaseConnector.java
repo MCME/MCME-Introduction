@@ -39,7 +39,9 @@ public class DatabaseConnector {
         String database = cfg.getString("database.database", "minecraft");
         this.user = cfg.getString("database.user", "root");
         this.password = cfg.getString("database.password", "");
-        this.url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&autoReconnect=true", host, port, database);
+        // A login waits for the player's row: an unreachable database must not hold it up for long.
+        this.url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&autoReconnect=true&connectTimeout=5000&socketTimeout=5000",
+                host, port, database);
         // Note: actual initialization (table creation) is performed via initialize() synchronously during startup
     }
 
@@ -95,8 +97,10 @@ public class DatabaseConnector {
     /**
      * Read a player's confirmation row. If no row exists, returns null.
      * Synchronous method; caller must run async. Throws IllegalStateException on main thread.
+     *
+     * @throws SQLException when the database can't be reached or read, which the caller reports
      */
-    public ConfirmRow readRow(String playerUUID) {
+    public ConfirmRow readRow(String playerUUID) throws SQLException {
         ensureNotMainThread();
         if (playerUUID == null || !initialized) return null;
         String sql = "SELECT optifine, ignore_confirmed FROM confirm_data WHERE player_uuid = ?";
@@ -110,8 +114,6 @@ public class DatabaseConnector {
                     return new ConfirmRow(playerUUID, optifine, ignore);
                 }
             }
-        } catch (SQLException e) {
-            IntroductionPlugin.getInstance().getLogger().log(Level.WARNING, "Failed to read confirm_data row: " + e.getMessage(), e);
         }
         return null;
     }
@@ -132,6 +134,37 @@ public class DatabaseConnector {
 //Logger.getGlobal().info("Confirm: upsert row: "+optifine+", "+ignore);
         } catch (SQLException e) {
             IntroductionPlugin.getInstance().getLogger().log(Level.WARNING, "Failed to upsert confirm_data row: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Writes a player's /confirm optifine and leaves their other choice as the database has it:
+     * another server may have changed that one since this server read the row.
+     * Synchronous; caller must run async.
+     */
+    public void saveOptifine(String playerUUID, boolean optifine) {
+        saveChoice("INSERT INTO confirm_data (player_uuid, optifine) VALUES (?,?) "
+                + "ON DUPLICATE KEY UPDATE optifine = VALUES(optifine)", playerUUID, optifine);
+    }
+
+    /**
+     * Writes a player's /confirm ignore and leaves their other choice as the database has it.
+     * Synchronous; caller must run async.
+     */
+    public void saveIgnore(String playerUUID, boolean ignore) {
+        saveChoice("INSERT INTO confirm_data (player_uuid, ignore_confirmed) VALUES (?,?) "
+                + "ON DUPLICATE KEY UPDATE ignore_confirmed = VALUES(ignore_confirmed)", playerUUID, ignore);
+    }
+
+    private void saveChoice(String sql, String playerUUID, boolean choice) {
+        ensureNotMainThread();
+        if (playerUUID == null || !initialized) return;
+        try (var conn = DriverManager.getConnection(url, user, password); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, playerUUID);
+            ps.setInt(2, choice ? 1 : 0);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            IntroductionPlugin.getInstance().getLogger().log(Level.WARNING, "Failed to save confirm_data row: " + e.getMessage(), e);
         }
     }
 

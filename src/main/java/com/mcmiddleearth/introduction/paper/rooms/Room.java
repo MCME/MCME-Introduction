@@ -7,6 +7,8 @@ import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import net.kyori.adventure.text.Component;
@@ -18,13 +20,17 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.EquippableComponent;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -44,15 +50,24 @@ public abstract class Room {
     private final Advancement advancement;
 
     private final Map<UUID, ItemStack> playerItems = new HashMap<>();
+    // Players whose head item the overlay item has replaced: their item is only in playerItems then.
+    private final Set<UUID> overlaid = new HashSet<>();
     private final Map<UUID, GameMode> playerGamemodes = new HashMap<>();
     private final Set<UUID> fixedPlayers = new HashSet<>();
     private final Map<UUID, Integer> playerEnterTimes = new HashMap<>();
+    // When each player in the room was put in it, for the flow log.
+    private final Map<UUID, Instant> enteredAt = new HashMap<>();
 
     private final Set<UUID> awaitingTeleport = new HashSet<>();
 
     private final Map<UUID, BukkitTask> actionBarTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> overlayTasks = new HashMap<>();
     private final Map<UUID, BukkitTask> unsilenceTasks = new HashMap<>();
+    // The move on at the end of the black screen, for players this room teleports.
+    private final Map<UUID, BukkitTask> blackScreenTasks = new HashMap<>();
+
+    // Set by unload(), when a reload replaces the room.
+    private boolean unloaded = false;
 
     // Resource pack related messages (loaded from config JSON)
     private final Component rpFailureMessage;
@@ -63,6 +78,11 @@ public abstract class Room {
     private final Component rpInvalidUrlMessage;
 
     protected static final Set<NamespacedKey> overlays = new HashSet<>();
+
+    // The player's own game mode while they are in a room, in the player's data.
+    private static final NamespacedKey SAVED_GAME_MODE = NamespacedKey.fromString("mcme:intro_gamemode");
+    // The head item an overlay item replaced, in the overlay item's own data.
+    private static final NamespacedKey CARRIED_HEAD_ITEM = NamespacedKey.fromString("mcme:intro_head");
 
     // Where the rooms read a player's resource-pack status: MCME-Architect's RpManager. Tests replace
     // it, because RpManager cannot even be loaded without a running MCME-Architect.
@@ -140,6 +160,59 @@ public abstract class Room {
     public void unload() {
         // The advancement stays registered: the next Room with this key picks it up again.
         // See removeAdvancement().
+        unloaded = true;
+        releaseHeadItems();
+        // Chat that was about to come back comes back now: the task also tells the proxy.
+        unsilenceTasks.forEach((uuid, task) -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if(!task.isCancelled() && player != null) {
+                unSilence(player);
+            }
+        });
+        // After a reload new rooms take over: this room's tasks must not run on with its players.
+        // One in the black screen stays where they are, and enters the new room at their next move.
+        for(Map<UUID, BukkitTask> tasks : List.of(actionBarTasks, overlayTasks, unsilenceTasks, blackScreenTasks)) {
+            tasks.values().forEach(BukkitTask::cancel);
+            tasks.clear();
+        }
+        awaitingTeleport.clear();
+    }
+
+    /**
+     * Whether a reload replaced this room. Tasks scheduled before it can still hold the room; it
+     * takes no player in any more.
+     */
+    public boolean isUnloaded() {
+        return unloaded;
+    }
+
+    /**
+     * Gives every player whose head item the room holds their own item back, wherever they are.
+     * Called at a shutdown or a reload, after the players in the room have left it: what is left
+     * are reminders, whose overlay item would stay on the head while the item it replaced is
+     * forgotten.
+     */
+    private void releaseHeadItems() {
+        for(UUID uuid : List.copyOf(playerItems.keySet())) {
+            Player player = Bukkit.getPlayer(uuid);
+            if(player != null) {
+                removeCameraOverlay(player);
+            }
+        }
+        playerItems.clear();
+        overlaid.clear();
+        fixedPlayers.clear();
+    }
+
+    /**
+     * Takes an overlay item off the head of a player who joins outside the rooms. Only a crash
+     * leaves one there; the item it replaced comes back, as the overlay item carries it.
+     */
+    public static void removeLeftoverOverlay(Player player) {
+        ItemStack head = player.getInventory().getItem(EquipmentSlot.HEAD);
+        if(isOverlayItem(head)) {
+            player.getInventory().setItem(EquipmentSlot.HEAD, headItemToRestore(head));
+        }
     }
 
     /**
@@ -173,11 +246,22 @@ public abstract class Room {
     }
 
     public boolean handleEnter(Player player) {
+        if(unloaded) {
+            return false;
+        }
+        // Moved here from the other room without walking on, by a teleport from staff say: out of
+        // that room first, or its spectator mode would be the mode this room gives back.
+        for(Room other : List.of(IntroductionPlugin.getInstance().getFirst(), IntroductionPlugin.getInstance().getSecond())) {
+            if(other != this && other.isEntered(player)) {
+                other.handleExit(player, true, Exit.LEFT);
+            }
+        }
         IntroductionPlugin.getInstance().getFirst().handleOverride(player, false);
         IntroductionPlugin.getInstance().getSecond().handleOverride(player, false);
         if(!playerItems.containsKey(player.getUniqueId())) {
+            recordEnter(player);
             playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
-            setCameraOverlay(player);
+            setCameraOverlay(player, true);
             //sendChat(player); -> moved inside setCameraOverlay
             sendActionBar(player);
             sendAdvancement(player);
@@ -186,7 +270,7 @@ public abstract class Room {
             // Tips belong after the rooms; leaving the last room starts them anew.
             IntroductionChain.interruptChain(player);
             silence(player);
-            playerGamemodes.put(player.getUniqueId(), player.getGameMode());
+            playerGamemodes.put(player.getUniqueId(), gameModeToRestore(player));
             player.setGameMode(GameMode.SPECTATOR);
             Location loc = player.getLocation();
             /*loc.setPitch(pitch);
@@ -197,13 +281,14 @@ public abstract class Room {
             return true;
         } else {
             if(!playerGamemodes.containsKey(player.getUniqueId())) {
+                recordEnter(player);
                 sendChat(player);
                 sendActionBar(player);
                 sendAdvancement(player);
                 RoomListener.cancelAllUnsilenceTasks(player);
                 IntroductionChain.interruptChain(player);
                 silence(player);
-                playerGamemodes.put(player.getUniqueId(), player.getGameMode());
+                playerGamemodes.put(player.getUniqueId(), gameModeToRestore(player));
                 player.setGameMode(GameMode.SPECTATOR);
                 /*Location loc = player.getLocation();
                 loc.setPitch(pitch);
@@ -217,16 +302,55 @@ public abstract class Room {
         return false;
     }
 
-    public void handleExit(Player player, boolean delayUnSilence) {
+    /**
+     * The game mode the player gets back on leaving the room, which is also kept with the player's
+     * own data until then. The server saves that data, so a mode found there already was left by
+     * a crash in a room: it wins over the room's spectator mode the player was saved in.
+     */
+    private static GameMode gameModeToRestore(Player player) {
+        PersistentDataContainer data = player.getPersistentDataContainer();
+        GameMode mode = player.getGameMode();
+        String kept = data.get(SAVED_GAME_MODE, PersistentDataType.STRING);
+        if(kept != null) {
+            try {
+                mode = GameMode.valueOf(kept);
+            } catch(IllegalArgumentException notAGameMode) {
+                // Then the mode the player has.
+            }
+        }
+        data.set(SAVED_GAME_MODE, PersistentDataType.STRING, mode.name());
+        return mode;
+    }
+
+    private void recordEnter(Player player) {
+        enteredAt.put(player.getUniqueId(), Instant.now());
+        FlowEvents.enter(this, player);
+    }
+
+    /**
+     * Whether the player is in this room: put in it and not taken out again.
+     */
+    public boolean isEntered(Player player) {
+        return playerGamemodes.containsKey(player.getUniqueId());
+    }
+
+    /**
+     * Takes the player out of the room, if they are in it.
+     *
+     * @param how why the player leaves, for the flow log
+     */
+    public void handleExit(Player player, boolean delayUnSilence, Exit how) {
 //Logger.getGlobal().info("Room: "+this.toString()+" handleExit");
 //Logger.getGlobal().info(fixedPlayers.contains(player.getUniqueId())+" && "+playerItems.containsKey(player.getUniqueId()));
         if(playerGamemodes.containsKey(player.getUniqueId())) {
 //Logger.getGlobal().info("EXIT");
+            FlowEvents.exit(this, player, how, enteredAt.remove(player.getUniqueId()));
             //if(!fixedPlayers.contains(player.getUniqueId())) {
                 removeCameraOverlay(player);
                 playerItems.remove(player.getUniqueId());
             //}
             player.setGameMode(playerGamemodes.get(player.getUniqueId()));
+            player.getPersistentDataContainer().remove(SAVED_GAME_MODE);
             playerGamemodes.remove(player.getUniqueId());
             stopActionBar(player);
 //Logger.getGlobal().info("unsilence delay: "+ unsilenceDelay);
@@ -247,11 +371,14 @@ public abstract class Room {
     public void handleOverride(Player player, boolean override) {
 //Logger.getGlobal().info("Override: "+override);
         if(override) {
+            if(unloaded) {
+                return;
+            }
             fixedPlayers.add(player.getUniqueId());
             if(!playerItems.containsKey(player.getUniqueId())) {
 //Logger.getGlobal().info("Not in Room, setting overlay");
                 playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
-                setCameraOverlay(player);
+                setCameraOverlay(player, false);
                 //sendChat(player); -> moved inside setCameraOverlay
             }
         } else {
@@ -267,43 +394,113 @@ public abstract class Room {
     /**
      * Decides which item to give back when the camera overlay comes off the player's head again.
      * <p>
-     * Called just before the overlay item replaces what the player wears, by both
-     * {@link #handleEnter} and {@link #handleOverride}. Usually that is the player's own helmet,
+     * Called by {@link #handleEnter} and {@link #handleOverride}, and again just before the
+     * overlay item replaces what the player wears. Usually that is the player's own helmet,
      * or nothing. But an overlay item can be left on a player's head, for example when the server
      * stops while they are in a room. Handing that back would leave them wearing it for good.
      * <p>
      * A leftover is recognised by its camera overlay, so it is only caught while that overlay is
-     * still one the rooms use in config.yml.
+     * still one the rooms use in config.yml. It carries the item it replaced, which comes back
+     * instead; one from before 1.4.1 carries none.
      *
-     * @param currentHead what the player wears now: never null, an AIR stack when the slot is empty
-     * @return the item to put back on the player's head later; AIR for a leftover overlay item
+     * @param currentHead what the player wears now, an AIR stack when the slot is empty
+     * @return the item to put back on the player's head later; for a leftover overlay item, the
+     *         item it carries, or AIR
      */
-    ItemStack headItemToRestore(ItemStack currentHead) {
+    public static ItemStack headItemToRestore(@Nullable ItemStack currentHead) {
         if(isOverlayItem(currentHead)) {
+            byte[] carried = currentHead.getItemMeta().getPersistentDataContainer()
+                    .get(CARRIED_HEAD_ITEM, PersistentDataType.BYTE_ARRAY);
+            if(carried != null) {
+                try {
+                    return ItemStack.deserializeBytes(carried);
+                } catch(RuntimeException e) {
+                    IntroductionPlugin.getInstance().getLogger().warning("An overlay item carried a head item that"
+                            + " can't be read any more: " + e.getMessage());
+                }
+            }
             return new ItemStack(Material.AIR);
         }
         return currentHead;
+    }
+
+    /**
+     * The overlay item to put on the head, carrying the item it replaces in its own data. After a
+     * crash nothing else knows that item.
+     */
+    private static ItemStack carrying(ItemStack overlayItem, ItemStack replaced) {
+        ItemStack carrier = overlayItem.clone();
+        if(replaced != null && !replaced.isEmpty()) {
+            ItemMeta meta = carrier.getItemMeta();
+            meta.getPersistentDataContainer().set(CARRIED_HEAD_ITEM, PersistentDataType.BYTE_ARRAY,
+                    replaced.serializeAsBytes());
+            carrier.setItemMeta(meta);
+        }
+        return carrier;
+    }
+
+    /**
+     * Turns the plugin's overlay items the player holds back into the items they carry. A player
+     * who took one off their head during a reminder kept it, and it carries their own head item.
+     */
+    private static void unpackOverlayItems(Player player) {
+        PlayerInventory inventory = player.getInventory();
+        ItemStack[] contents = inventory.getContents();
+        for(int slot = 0; slot < contents.length; slot++) {
+            if(isOverlayItem(contents[slot])) {
+                inventory.setItem(slot, headItemToRestore(contents[slot]));
+            }
+        }
+        if(isOverlayItem(player.getItemOnCursor())) {
+            player.setItemOnCursor(headItemToRestore(player.getItemOnCursor()));
+        }
     }
 
     public boolean isFixed(Player player) {
         return fixedPlayers.contains(player.getUniqueId());
     }
 
-    public void teleport(Player player, Room previous, Room next) {
-//Logger.getGlobal().info("SET awaiting Teleport");
-        previous.awaitingTeleport.add(player.getUniqueId());
-//Logger.getGlobal().info("test is awaiting: "+isAwaitingTeleport(player));
-//Logger.getGlobal().info("Second test: "+awaitingTeleport.contains(player.getUniqueId()));
+    /**
+     * Takes the player out of the previous room, after a black screen, and into the next room, or
+     * on to the tips after the last room.
+     *
+     * @param how why the player leaves the previous room, for the flow log
+     * @return false when the player is on the way out of the previous room already, such as after
+     *         a double click on /confirm: the black screen and the tips must not come twice
+     */
+    public boolean teleport(Player player, Room previous, Room next, Exit how) {
+        if(unloaded) {
+            return false;
+        }
+        // Read before the player waits for the move on: a typo in tpTransitionTimes throws here.
         Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])*50L),
                                         Duration.ofMillis(Integer.parseInt(tpTransitionTimes[1])*50L),
                                         Duration.ofMillis(Integer.parseInt(tpTransitionTimes[2])*50L));
+        long delay = Long.parseLong(tpTransitionTimes[0]);
+//Logger.getGlobal().info("SET awaiting Teleport");
+        if(!previous.awaitingTeleport.add(player.getUniqueId())) {
+            return false;
+        }
+//Logger.getGlobal().info("test is awaiting: "+isAwaitingTeleport(player));
+//Logger.getGlobal().info("Second test: "+awaitingTeleport.contains(player.getUniqueId()));
         Title black = Title.title(tpTransitionTitle,Component.empty(),times);
         player.showTitle(black);
-        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-            previous.handleExit(player, true);
-            //RoomListener.allowTeleportOut(player);
-            player.teleport(tpTarget);
-            previous.awaitingTeleport.remove(player.getUniqueId());
+        blackScreenTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
+            blackScreenTasks.remove(player.getUniqueId());
+            try {
+                if (!player.isOnline()) {
+                    // Quit during the black screen: quitting took the player out of the room already,
+                    // and they stay where they were until they come back.
+                    return;
+                }
+                previous.handleExit(player, true, how);
+                //RoomListener.allowTeleportOut(player);
+                player.teleport(tpTarget);
+            } finally {
+                // Also when the teleport fails, to a world that isn't loaded say: the room ignores
+                // the moves of a player who waits for the move on, so they would be frozen.
+                previous.awaitingTeleport.remove(player.getUniqueId());
+            }
 //Logger.getGlobal().info("UNSET awaiting teleport");
             if (next != null) {
                 next.handleEnter(player);
@@ -313,11 +510,25 @@ public abstract class Room {
               IntroductionChain.startChain(player);
 //                }, unsilenceDelay);
             }
-        },Long.parseLong(tpTransitionTimes[0]));
+        }, delay));
+        return true;
     }
 
+    /**
+     * Forgets that a player who quits was on the way out of the room.
+     */
+    public void forgetTeleport(Player player) {
+        awaitingTeleport.remove(player.getUniqueId());
+    }
+
+    /**
+     * Puts the room's picture on the player's head once the resource pack has loaded.
+     *
+     * @param inRoom whether the player is entering the room, rather than getting a reminder;
+     *               only then does the pack's result go in the flow log
+     */
     @SuppressWarnings("UnstableApiUsage")
-    public void setCameraOverlay(Player player) {
+    private void setCameraOverlay(Player player, boolean inRoom) {
         ItemStack overlayItem = new ItemStack(Material.STONE);
         ItemMeta meta = overlayItem.getItemMeta();
         EquippableComponent equip = meta.getEquippable();
@@ -327,22 +538,43 @@ public abstract class Room {
         equip.setCameraOverlay(overlay);
         meta.setEquippable(equip);
         overlayItem.setItemMeta(meta);
-        startOverlayTask(player,overlayItem);
+        startOverlayTask(player,overlayItem, inRoom);
     }
 
+    /**
+     * Takes the overlay item off the player's head and gives back the item it replaced.
+     * <p>
+     * Outside the rooms, during a reminder, the player can change their head item meanwhile. So the
+     * saved item goes back only over an overlay item. When the overlay never went on, the player
+     * still has their own item, and the saved one is forgotten. When the player took the overlay
+     * item off, it still carries their item: the overlay items they hold turn back into the items
+     * they carry. Giving the saved item as well would make two, as the carried one comes back
+     * whenever the overlay item is found on a head again.
+     */
     public void removeCameraOverlay(Player player) {
-        //player.getInventory().setItem(EquipmentSlot.HEAD, new ItemStack(Material.AIR));
-        player.getInventory().setItem(EquipmentSlot.HEAD, playerItems.get(player.getUniqueId()));
+        UUID uuid = player.getUniqueId();
+        if(isOverlayItem(player.getInventory().getItem(EquipmentSlot.HEAD))) {
+            player.getInventory().setItem(EquipmentSlot.HEAD, playerItems.get(uuid));
+        } else if(overlaid.contains(uuid)) {
+            unpackOverlayItems(player);
+        }
+        overlaid.remove(uuid);
         stopOverlayTask(player);
     }
 
     public abstract NamespacedKey selectCameraOverlay(Player player);
 
+    /**
+     * The room's name in the flow log: welcome or compatibility, as hub-flow names them.
+     */
+    public abstract String getFlowName();
+
     // The overlay task checks the resource pack every 10 ticks: 20 checks are 10 seconds.
     private static final int NO_PACK_CHAT_ATTEMPTS = 20;
 
-    private void startOverlayTask(Player player, ItemStack overlayItem) {
+    private void startOverlayTask(Player player, ItemStack overlayItem, boolean recordPack) {
         stopOverlayTask(player);
+        Instant waitingSince = Instant.now();
         BukkitTask task = new BukkitRunnable() {
             int attempts = 0;
             boolean chatSent = false;
@@ -351,11 +583,19 @@ public abstract class Room {
 //Logger.getGlobal().info("attempt: "+attempts+"  "+RpManager.getPlayerData(player).getCurrentRpStatus());
                 RpPlayerData data = rpPlayerData.apply(player);
                 if(isRpLoaded(data)) {
-                    player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
+                    // What the overlay item replaces comes back: during a reminder the player can
+                    // have changed their head item since it was saved.
+                    ItemStack replaced = headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD));
+                    playerItems.put(player.getUniqueId(), replaced);
+                    player.getInventory().setItem(EquipmentSlot.HEAD, carrying(overlayItem, replaced));
+                    overlaid.add(player.getUniqueId());
                     if(!chatSent) {
                         sendChat(player);
                     }
+                    recordPack("loaded");
                     cancel();
+                    // Done: not also timed out, when this was the last check.
+                    return;
                 }
                 else if(!chatSent && attempts >= NO_PACK_CHAT_ATTEMPTS
                         && data.getCurrentRpStatus().equals(RpPlayerStatus.NOT_SENT)) {
@@ -363,11 +603,13 @@ public abstract class Room {
                     // tells the player what to do. Keep waiting for a pack for the overlay.
                     sendChat(player);
                     chatSent = true;
+                    recordPack("not_sent");
                 }
                 else if(isRpFail(data)) {
                     stopOverlayTask(player);
                     // pick message based on exact failure reason
                     RpPlayerStatus status = data.getCurrentRpStatus();
+                    recordPack(status.name().toLowerCase(Locale.ROOT));
                     Component msg;
                     if(status.equals(RpPlayerStatus.DECLINED)) {
                         msg = rpDeclinedMessage;
@@ -385,6 +627,7 @@ public abstract class Room {
                     } else {
                         IntroductionPlugin.sendErrorMessage(player, "Could not send overlay as your resource pack failed to load.");
                     }
+                    return;
                 }
                 attempts++;
                 if(attempts > 500) {
@@ -393,7 +636,14 @@ public abstract class Room {
                     } else {
                         IntroductionPlugin.sendErrorMessage(player, "Could not send overlay as your resource pack doesn't seem to load: Timed out.");
                     }
+                    recordPack("timeout");
                     stopOverlayTask(player);
+                }
+            }
+
+            private void recordPack(String result) {
+                if(recordPack) {
+                    FlowEvents.pack(Room.this, player, result, waitingSince);
                 }
             }
         }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 10L);
@@ -555,7 +805,10 @@ public abstract class Room {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private boolean isOverlayItem(ItemStack item) {
+    static boolean isOverlayItem(@Nullable ItemStack item) {
+        if(item == null) {
+            return false;
+        }
         ItemMeta meta = item.getItemMeta();
         if(meta != null) {
             EquippableComponent equip = meta.getEquippable();

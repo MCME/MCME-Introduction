@@ -65,6 +65,29 @@ class ChatPacketListenerTest extends PluginTestBase {
     }
 
     @Test
+    void aMessageThatOnlyMentionsTheChannelIsBlocked() {
+        // Chat that a player typed, say.
+        String typed = "{\"text\":\"<Someone> type " + IntroductionPlugin.CHANNEL + " to get through\"}";
+
+        assertTrue(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), typed));
+    }
+
+    @Test
+    void aMessageWithTheChannelOnlyInAPartIsBlocked() {
+        // The plugin marks the whole message: its root component carries the insertion.
+        String part = "{\"text\":\"<Someone> \",\"extra\":[{\"text\":\"hi\",\"insertion\":\"" + IntroductionPlugin.CHANNEL + "\"}]}";
+
+        assertTrue(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), part));
+    }
+
+    @Test
+    void aMessageThatIsNotJsonFallsBackToTheTextCheck() {
+        // As before 1.4.1: a message that names the channel gets through, others are hidden.
+        assertFalse(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), "{" + IntroductionPlugin.CHANNEL));
+        assertTrue(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), "{Hello everyone"));
+    }
+
+    @Test
     void nothingIsBlockedForOtherPlayers() {
         assertFalse(ChatPacketListener.isBlocked(otherPlayer.getUniqueId(), OTHER_MESSAGE));
         assertFalse(ChatPacketListener.isBlocked(otherPlayer.getUniqueId(), null));

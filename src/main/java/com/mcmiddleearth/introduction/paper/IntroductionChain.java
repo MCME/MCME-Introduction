@@ -1,6 +1,7 @@
 package com.mcmiddleearth.introduction.paper;
 
 import com.mcmiddleearth.connect.util.ConnectUtil;
+import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -16,8 +17,11 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.*;
 import java.util.logging.Logger;
@@ -28,6 +32,8 @@ public class IntroductionChain {
     private static final Map<UUID, BukkitTask> playerTasks = new HashMap<>();
     private static final List<Advancement> advancements = new ArrayList<>();
     private static final Set<UUID> finishedPlayers = new HashSet<>();
+    // Players whose tips were running when /intro reload took the tips down: load() resumes them.
+    private static final Set<UUID> resumeAfterLoad = new HashSet<>();
 
     private static final String advancementKey = "mcme:introchain";
 
@@ -40,16 +46,28 @@ public class IntroductionChain {
     private static long fadeIn, stay, fadeOut;
 
     public static void load() {
-        try(Scanner scanner = new Scanner(new File(IntroductionPlugin.getInstance().getDataFolder(),finishedPlayerFilename))) {
-            finishedPlayers.clear();
-            while(scanner.hasNext()) {
-                finishedPlayers.add(UUID.fromString(scanner.nextLine()));
+        finishedPlayers.clear();
+        try(Scanner scanner = new Scanner(finishedPlayerFile())) {
+            while(scanner.hasNextLine()) {
+                String line = scanner.nextLine().trim();
+                if(line.isEmpty()) {
+                    continue;
+                }
+                try {
+                    finishedPlayers.add(UUID.fromString(line));
+                } catch(IllegalArgumentException e) {
+                    // A line cut off by a crash, say: the player just gets the broadcast again.
+                    IntroductionPlugin.getInstance().getLogger().warning(finishedPlayerFilename
+                            + ": skipped a line that is not a player's UUID: " + line);
+                }
             }
         } catch (FileNotFoundException ignore) {
-            //throw new RuntimeException(e);
+            // Nobody has finished on this server yet.
         }
         config = IntroductionPlugin.getInstance().getConfig()
                 .getConfigurationSection("introductionChain");
+        // Loading again replaces the tips: appending would show each one twice.
+        advancements.clear();
         if(config != null) {
             startMessage = Room.getMessage(config.getString("startMessage"));
             ConfigurationSection titleConfig = config.getConfigurationSection("title");
@@ -69,14 +87,28 @@ public class IntroductionChain {
 //Logger.getGlobal().info("Key: "+key);
                 //NamespacedKey key2 = NamespacedKey.fromString(advancementKey + (char)(64+i));
 //Logger.getGlobal().info("Key2: "+key2);
-                advancements.add(IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey + i),
-                        "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}"));
+                Advancement tip = IntroductionPlugin.loadAdvancement(NamespacedKey.fromString(advancementKey + i),
+                        "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}");
+                // A tip that isn't valid is left out; loadAdvancement logged it.
+                if(tip != null) {
+                    advancements.add(tip);
+                }
             }
         }
+        // The tips go on where they were, after the initial delay.
+        resumeAfterLoad.forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if(player != null) {
+                continueChain(player);
+            }
+        });
+        resumeAfterLoad.clear();
     }
 
     public static void startChain(Player player) {
         interruptChain(player);
+        // The list gets the player with the broadcast, startBroadcastDelay later.
+        FlowEvents.finish(player, !finishedPlayers.contains(player.getUniqueId()));
         player.sendTitlePart(TitlePart.TITLE, (startTitle != null ? startTitle : Component.text("Welcome")));
         player.sendTitlePart(TitlePart.SUBTITLE, (startSubtitle != null ? startSubtitle : Component.text("to")
                 .append(Component.text("Minecraft Middle-earth").color(TextColor.fromCSSHexString("ffc13b")))));
@@ -91,11 +123,10 @@ public class IntroductionChain {
                     + player.getName()
                     + startBroadcast.substring(playerIndex + 4);
             //Component broadcastMessage = LegacyComponentSerializer.legacy('§').deserialize(send);
-            if (!finishedPlayers.contains(player.getUniqueId())) {
+            if (!hasFinished(player.getUniqueId())) {
                 ConnectUtil.sendMessage(player, "", "", send, 0);
                 //Bukkit.broadcast(broadcastMessage);
-                finishedPlayers.add(player.getUniqueId());
-                saveFinishedPlayers();
+                addFinishedPlayer(player.getUniqueId());
             } else {
                 player.sendMessage(send);
             }
@@ -104,13 +135,43 @@ public class IntroductionChain {
         continueChain(player);
     }
 
-    private static void saveFinishedPlayers() {
-        try(PrintWriter writer = new PrintWriter(new FileOutputStream(new File(IntroductionPlugin.getInstance()
-                                                                        .getDataFolder(),finishedPlayerFilename)))) {
-            finishedPlayers.forEach(writer::println);
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
+    /**
+     * Whether the player finished the introduction before, on this server.
+     */
+    static boolean hasFinished(UUID player) {
+        return finishedPlayers.contains(player);
+    }
+
+    /**
+     * Puts the player on the list, by adding a line to the file. Rewriting the whole file instead
+     * would put every name on it at risk at a crash or a full disk.
+     */
+    static void addFinishedPlayer(UUID player) {
+        finishedPlayers.add(player);
+        File file = finishedPlayerFile();
+        try {
+            // A last line cut off by a crash would run into the new one.
+            String line = (endsWithLineBreak(file) ? "" : System.lineSeparator()) + player + System.lineSeparator();
+            Files.writeString(file.toPath(), line, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            IntroductionPlugin.getInstance().getLogger().warning("Could not add a player to "
+                    + finishedPlayerFilename + ": " + e.getMessage());
         }
+    }
+
+    private static boolean endsWithLineBreak(File file) throws IOException {
+        if(!file.exists() || file.length() == 0) {
+            return true;
+        }
+        try(RandomAccessFile access = new RandomAccessFile(file, "r")) {
+            access.seek(access.length() - 1);
+            return access.read() == '\n';
+        }
+    }
+
+    private static File finishedPlayerFile() {
+        return new File(IntroductionPlugin.getInstance().getDataFolder(), finishedPlayerFilename);
     }
 
     public static void continueChain(Player player) {
@@ -122,9 +183,11 @@ public class IntroductionChain {
                             int stage = playerStages.get(player.getUniqueId());
 //Logger.getGlobal().info("Stage: " + stage + " for " + player.getName());
                             if (stage < advancements.size()) {
-                                player.getAdvancementProgress(advancements.get(stage)).awardCriteria("manual");
+                                // Taken back later from this advancement: a reload empties the list meanwhile.
+                                Advancement tip = advancements.get(stage);
+                                player.getAdvancementProgress(tip).awardCriteria("manual");
                                 Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                                    player.getAdvancementProgress(advancements.get(stage)).revokeCriteria("manual");
+                                    player.getAdvancementProgress(tip).revokeCriteria("manual");
                                     playerStages.put(player.getUniqueId(), stage + 1);
                                 }, 200);
                             } else {
@@ -148,6 +211,15 @@ public class IntroductionChain {
     public static void unload() {
         // The advancements stay registered: load() picks them up again. See removeAdvancements().
         advancements.clear();
+        // Without tips loaded, a running chain would end at its next turn. Each player keeps their
+        // stage, and load() starts the chain again.
+        playerTasks.forEach((uuid, task) -> {
+            if(!task.isCancelled()) {
+                resumeAfterLoad.add(uuid);
+                task.cancel();
+            }
+        });
+        playerTasks.clear();
     }
 
     /**

@@ -24,8 +24,10 @@ One jar serves both sides of the network and is installed unchanged on each:
 
 - **Entering a room.** A room is a box in the world. A player who moves or is teleported into it is
   placed at the room's `playerLocation`, switched to spectator mode, and shown the room's camera
-  overlay (the full-screen picture) through an item on their head. The previous head item comes
-  back when they leave.
+  overlay (the full-screen picture) through an item on their head. The previous head item and game
+  mode come back when they leave. The game mode is kept in the player's own data meanwhile, so
+  after a crash in a room it still comes back. Spectator mode's own ways out, the "teleport to
+  player" menu and spectating an entity, don't work in a room.
 - **Leaving a room.** The player steps to the **left** (the strafe-left key, A by default). The screen
   fades to black and the player moves on: from the welcome room to the compatibility room or past it,
   from the compatibility room to the hub.
@@ -62,11 +64,11 @@ the pack before it shows its screen and its chat text, so the two arrive togethe
 
 While a player is in a room, **system chat** is hidden from them. System chat is what chat plugins
 like VentureChat normally send, plus join, leave and broadcast messages.
-- **On the backend**, ProtocolLib drops it. The plugin's own messages still get through, because they
-  carry the insertion `mcme:intro`.
+- **On the backend**, ProtocolLib drops it. The plugin's own messages still get through, because the
+  message as a whole (its root component) carries the insertion `mcme:intro`.
 - **On the proxy**, VPacketEvents drops the system chat the proxy handles for that player, such as the
   network's join and leave messages. The backend tells the proxy when a player enters and leaves the
-  rooms.
+  rooms. The proxy also ends the silence when the player leaves the network or arrives on a server.
 
 **Player chat** (`/say`, `/me`, signed chat) is not hidden. Since Minecraft 1.21.5 the client numbers
 player chat messages and disconnects when one is missing, so dropping them is not safe.
@@ -109,23 +111,29 @@ practice.
 
 | Command | Who | What it does |
 |---------|-----|--------------|
-| `/intro reload` | `introduction.reload` (op by default) | Reloads `config.yml` and `locations.yml` and rebuilds the rooms. Players in a room leave it (game mode, head item and chat restored) and enter it again at their next move. Changed advancement texts (the room and tip toasts) take effect at the next clean restart. |
+| `/intro reload` | `introduction.reload` (op by default) | Reloads `config.yml` and `locations.yml` and rebuilds the rooms, a second after the command. Tells the sender when it starts and when it is done, or that it failed (the error is in the console); a second reload in that second is ignored. Players in a room leave it (game mode, head item and chat restored) and enter it again at their next move; a reminder's warning screen comes off and the reminders go on from the next `reminderPeriod`, and the tips carry on. Changed advancement texts (the room and tip toasts) take effect at the next clean restart. |
 | `/intro glowitem <player> on\|off` | the console, or another sender that isn't a player | Turns the glowing items on or off for a player (see `itemGlow` in the configuration). |
 | `/confirm optifine` | players with a Forge-family client on a supported version | Leaves the compatibility room and stops its reminders for good. |
 | `/confirm ignore` | every player except those `/confirm optifine` is for | Leaves the compatibility room and stops its reminders for good. |
-| `/confirm reset` | every player | Forgets the player's confirmations, so the compatibility room and its reminders come back. |
+| `/confirm reset` | every player (not the console) | Forgets the player's confirmations, so the compatibility room and its reminders come back. |
 
 ## Data the plugin keeps
 
 In `plugins/MCME-Introduction/`:
 
 - `finishedPlayerList.uid`: the players who finished the introduction once, one UUID per line. They
-  get no network-wide broadcast when they finish again.
+  get no network-wide broadcast when they finish again. Each new finisher is added as a line at the
+  end; blank lines are skipped, and a line that is no UUID is skipped with a warning in the log.
 - `EnabledGlowItems.dat`: the players with glowing items on, one UUID per line.
+- `flow/YYYY-MM-DD.jsonl`: the flow log, a JSON line for each step a player takes through the
+  rooms (entering, the resource pack's result, leaving and how, finishing, reminders, `/confirm`),
+  one file per UTC day, kept 90 days. It is meant for tools such as hub-flow;
+  [docs/flow-log.md](docs/flow-log.md) describes it.
 
 With `database.enabled: true`, players' `/confirm` choices are stored in the table `confirm_data`
 (`player_uuid`, `optifine`, `ignore_confirmed`), which the plugin creates; a player's choices are
-loaded when they log in, on every server that uses the database. **Without the database, each server
+loaded when they log in, before they join, on every server that uses the database, so a
+`/confirm reset` on one server counts on the others at the next login. **Without the database, each server
 keeps the choices in memory until it restarts**, so confirming on the hub doesn't stop the reminders
 on another server. The plugin uses the MySQL driver that comes with Paper.
 
@@ -166,7 +174,11 @@ server with the plugin loaded. It fills in ProtocolLib's protocol manager and ke
 way Paper keeps them; MockBukkit ignores `depend:`, so the other plugins are simply absent.
 
 Tests that let the rooms check the resource pack replace `Room.rpPlayerData`: MCME-Architect's
-`RpManager` can't load without a running Architect.
+`RpManager` can't load without a running Architect. Tests that put players in the rooms extend
+`RoomTestBase`, which gives every player a 26.2 client without MCME's marker mod, by replacing
+`SecondRoom.clientVersion` (ViaVersion) and `SecondRoom.mcmeMarker` (MCME-Architect); its `addRooms`
+builds two rooms in a world. Flow log tests read the log back with `FlowLogFiles` after
+`getFlowLog().close()`, which writes the events still waiting.
 
 Not covered by tests:
 - the Velocity side;
