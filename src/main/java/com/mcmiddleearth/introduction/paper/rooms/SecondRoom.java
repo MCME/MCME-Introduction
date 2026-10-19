@@ -272,8 +272,9 @@ public class SecondRoom extends Room {
 
     public void startReminderTask(Player player) {
 //Logger.getGlobal().info("start reminder task for "+player.getName());
-        // Started with a delay, by leaving the room or by joining: the player can have left since.
-        if(!player.isOnline() || isSkipped(player)) {
+        // Started with a delay, by leaving the room or by joining: the player can have left since,
+        // or a reload replaced this room.
+        if(isUnloaded() || !player.isOnline() || isSkipped(player)) {
             return;
         }
         cancelReminderTask(player);

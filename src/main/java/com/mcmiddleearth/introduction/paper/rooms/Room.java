@@ -63,6 +63,9 @@ public abstract class Room {
     // The move on at the end of the black screen, for players this room teleports.
     private final Map<UUID, BukkitTask> blackScreenTasks = new HashMap<>();
 
+    // Set by unload(), when a reload replaces the room.
+    private boolean unloaded = false;
+
     // Resource pack related messages (loaded from config JSON)
     private final Component rpFailureMessage;
     private final Component rpTimeoutMessage;
@@ -149,6 +152,7 @@ public abstract class Room {
     public void unload() {
         // The advancement stays registered: the next Room with this key picks it up again.
         // See removeAdvancement().
+        unloaded = true;
         releaseHeadItems();
         // After a reload new rooms take over: this room's tasks must not run on with its players.
         // One in the black screen stays where they are, and enters the new room at their next move.
@@ -157,6 +161,14 @@ public abstract class Room {
             tasks.clear();
         }
         awaitingTeleport.clear();
+    }
+
+    /**
+     * Whether a reload replaced this room. Tasks scheduled before it can still hold the room; it
+     * takes no player in any more.
+     */
+    public boolean isUnloaded() {
+        return unloaded;
     }
 
     /**
@@ -218,6 +230,9 @@ public abstract class Room {
     }
 
     public boolean handleEnter(Player player) {
+        if(unloaded) {
+            return false;
+        }
         // Moved here from the other room without walking on, by a teleport from staff say: out of
         // that room first, or its spectator mode would be the mode this room gives back.
         for(Room other : List.of(IntroductionPlugin.getInstance().getFirst(), IntroductionPlugin.getInstance().getSecond())) {
@@ -328,6 +343,9 @@ public abstract class Room {
     public void handleOverride(Player player, boolean override) {
 //Logger.getGlobal().info("Override: "+override);
         if(override) {
+            if(unloaded) {
+                return;
+            }
             fixedPlayers.add(player.getUniqueId());
             if(!playerItems.containsKey(player.getUniqueId())) {
 //Logger.getGlobal().info("Not in Room, setting overlay");
@@ -379,6 +397,9 @@ public abstract class Room {
      *         a double click on /confirm: the black screen and the tips must not come twice
      */
     public boolean teleport(Player player, Room previous, Room next, Exit how) {
+        if(unloaded) {
+            return false;
+        }
         // Read before the player waits for the move on: a typo in tpTransitionTimes throws here.
         Title.Times times = Title.Times.times(Duration.ofMillis(Integer.parseInt(tpTransitionTimes[0])*50L),
                                         Duration.ofMillis(Integer.parseInt(tpTransitionTimes[1])*50L),

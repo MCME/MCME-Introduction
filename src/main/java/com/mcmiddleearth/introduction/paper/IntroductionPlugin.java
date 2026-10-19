@@ -138,6 +138,13 @@ public class IntroductionPlugin extends JavaPlugin {
         }, 20);
     }
 
+    /**
+     * Whether /intro reload has taken the rooms down and not built the new ones yet.
+     */
+    public boolean isReloadPending() {
+        return reloadPending;
+    }
+
     public void loadData() {
         flowLog = FlowLog.open(getDataFolder(), getConfig(), getLogger());
         IntroductionChain.load();

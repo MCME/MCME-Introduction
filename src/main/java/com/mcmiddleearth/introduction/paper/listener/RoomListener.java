@@ -21,6 +21,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.util.Vector;
 
+import javax.annotation.Nullable;
 import java.util.logging.Logger;
 
 /**
@@ -177,38 +178,53 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
 //Logger.getGlobal().info("In Room: " + room);
         if (room != null) {
             room.silence(event.getPlayer());
-            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                Player player = event.getPlayer();
-                // Turning the head is a move, and a move in a room passes on a player who need not be
-                // there: this one can be on their way out already.
-                if (!player.isOnline() || room.isAwaitingTeleport(player)) {
-                    return;
-                }
-                if (!room.isInside(player.getLocation())) {
-                    // Out of the room before the delay was over: passed on, or moved out some other way.
-                    // Joining in the room hid their chat.
-                    room.unSilence(player);
-                    return;
-                }
-                if (room.isSkipped(player)) {
-                    passOn(room, player);
-                } else {
-                    room.handleEnter(player);
-                }
-            }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
          } else {
             // A crash during a reminder leaves its warning screen on the head for good.
             Room.removeLeftoverOverlay(event.getPlayer());
-            Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                Room second = IntroductionPlugin.getInstance().getSecond();
-                Player player = event.getPlayer();
-                if (!player.isOnline()) {
-                    return;
-                }
-                ((SecondRoom)second).startReminderTask(player);
-                IntroductionChain.continueChain(player);
-            }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
         }
+        afterJoinDelay(event.getPlayer(), room);
+    }
+
+    /**
+     * The rest of a join, joinDelay later. /intro reload can replace the rooms meanwhile: the new
+     * rooms take the player on then, once they are there.
+     *
+     * @param room the room the player joined in, or null outside the rooms
+     */
+    private static void afterJoinDelay(Player player, @Nullable Room room) {
+        IntroductionPlugin plugin = IntroductionPlugin.getInstance();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            if (plugin.isReloadPending()) {
+                afterJoinDelay(player, room);
+                return;
+            }
+            if (room == null) {
+                ((SecondRoom) plugin.getSecond()).startReminderTask(player);
+                IntroductionChain.continueChain(player);
+                return;
+            }
+            // After a reload, the new room where the player stands.
+            Room current = (room.isUnloaded() ? plugin.getRoom(player.getLocation()) : room);
+            // Turning the head is a move, and a move in a room passes on a player who need not be
+            // there: this one can be on their way out already.
+            if (current != null && current.isAwaitingTeleport(player)) {
+                return;
+            }
+            if (current == null || !current.isInside(player.getLocation())) {
+                // Out of the room before the delay was over: passed on, or moved out some other way.
+                // Joining in the room hid their chat.
+                room.unSilence(player);
+                return;
+            }
+            if (current.isSkipped(player)) {
+                passOn(current, player);
+            } else {
+                current.handleEnter(player);
+            }
+        }, plugin.getConfig().getLong("joinDelay",10));
     }
 
     @EventHandler
