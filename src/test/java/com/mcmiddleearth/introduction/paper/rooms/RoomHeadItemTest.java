@@ -7,7 +7,12 @@ import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -17,7 +22,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -146,6 +155,78 @@ class RoomHeadItemTest extends RoomTestBase {
         server.getScheduler().performTicks(reminderDuration() + 40);
 
         assertEquals(1, count(Material.DIAMOND_HELMET), "diamond helmets");
+        // The item carries the helmet: kept, it would give a second one later.
+        assertEquals(0, overlayItemsHeld(), "warning screen items the player kept");
+    }
+
+    @Test
+    void aHelmetUnderAWarningScreenTakenOffIntoAFullInventoryTakesItsPlace() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(Material.DIAMOND_HELMET));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(5);
+
+        // The warning screen's item goes into the inventory, which is full otherwise.
+        player.getInventory().addItem(head());
+        wear(new ItemStack(Material.AIR));
+        ItemStack[] storage = player.getInventory().getStorageContents();
+        for (int slot = 0; slot < storage.length; slot++) {
+            if (storage[slot] == null || storage[slot].isEmpty()) {
+                player.getInventory().setItem(slot, new ItemStack(Material.DIRT, 64));
+            }
+        }
+        server.getScheduler().performTicks(reminderDuration() + 40);
+
+        assertEquals(1, count(Material.DIAMOND_HELMET), "diamond helmets");
+        assertEquals(0, overlayItemsHeld(), "warning screen items the player kept");
+        assertTrue(player.getWorld().getEntitiesByClass(Item.class).isEmpty(), "items dropped");
+    }
+
+    @Test
+    void aHelmetUnderAWarningScreenIsWhatDropsWhenThePlayerDies() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(Material.DIAMOND_HELMET));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(5);
+        List<ItemStack> drops = new ArrayList<>();
+        server.getPluginManager().registerEvents(new Listener() {
+            @EventHandler(priority = EventPriority.MONITOR)
+            public void died(PlayerDeathEvent event) {
+                event.getDrops().stream().filter(Objects::nonNull).forEach(drops::add);
+            }
+        }, plugin);
+
+        player.setHealth(0);
+        server.getScheduler().performTicks(reminderDuration() + 40);
+
+        long dropped = drops.stream().filter(item -> item.getType() == Material.DIAMOND_HELMET).count();
+        assertEquals(1, count(Material.DIAMOND_HELMET) + dropped, "diamond helmets, kept and dropped");
+        assertTrue(drops.stream().noneMatch(Room::isOverlayItem), "a warning screen item dropped");
+    }
+
+    @Test
+    void aWarningScreenLeftByACrashGivesTheHelmetBackOnJoining() {
+        wear(stoneLeftByACrash(Material.DIAMOND_HELMET));
+        // The client needs no reminders now.
+        SecondRoom.clientVersion = p -> ProtocolVersion.v26_2;
+
+        server.getPluginManager().callEvent(new PlayerConnectEvent(player, PlayerConnectEvent.ConnectReason.JOIN_PROXY));
+        server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + 1);
+
+        assertEquals(Material.DIAMOND_HELMET, head().getType());
+        assertEquals(1, count(Material.DIAMOND_HELMET), "diamond helmets");
+    }
+
+    @Test
+    void aWarningScreenLeftByACrashGivesTheHelmetBackAfterTheRoom() {
+        wear(stoneLeftByACrash(Material.DIAMOND_HELMET));
+        // The room of the plugin's data as loaded after the "crash".
+        Room current = plugin.getSecond();
+
+        current.handleEnter(player);
+        current.handleExit(player, false, Exit.LEFT);
+
+        assertEquals(Material.DIAMOND_HELMET, head().getType());
     }
 
     @Test
@@ -243,6 +324,30 @@ class RoomHeadItemTest extends RoomTestBase {
     private void swapHelmetFor(Material other) {
         player.getInventory().addItem(head());
         wear(new ItemStack(other));
+    }
+
+    /**
+     * The warning screen's item as a crash leaves it on the head: a reminder put it on over the
+     * helmet, and only the item itself still knows the helmet.
+     */
+    private ItemStack stoneLeftByACrash(Material helmet) {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(helmet));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(5);
+        ItemStack stone = head().clone();
+        // What the plugin kept in memory is gone, as after a crash.
+        plugin.unloadData();
+        plugin.loadData();
+        packStatus.setCurrentRpStatus(RpPlayerStatus.NOT_SENT);
+        player.getInventory().clear();
+        return stone;
+    }
+
+    /** How many of the plugin's overlay items the player has, anywhere in their inventory. */
+    private long overlayItemsHeld() {
+        return Arrays.stream(player.getInventory().getContents()).filter(Room::isOverlayItem).count()
+                + (Room.isOverlayItem(player.getItemOnCursor()) ? 1 : 0);
     }
 
     /** How many of an item the player has, on their head and in their inventory. */

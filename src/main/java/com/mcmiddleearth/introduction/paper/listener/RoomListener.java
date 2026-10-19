@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -255,6 +256,14 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
             }
         }
     }*/
+
+    @EventHandler
+    public void dropOwnHeadItem(PlayerDeathEvent event) {
+        // A warning screen's item on the head of a player who dies during a reminder carries
+        // their own head item: that one drops instead.
+        event.getDrops().replaceAll(Room::headItemToRestore);
+        event.getDrops().removeIf(item -> item != null && item.isEmpty());
+    }
 
     @EventHandler
     public void blockSpectating(PlayerStartSpectatingEntityEvent event) {

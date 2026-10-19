@@ -8,10 +8,12 @@ Fixes from the audit of 2026-10-19.
 - A player whose resource pack never loaded and who swapped helmets during a reminder lost the new
   helmet and got the old one back as a copy when they quit. Reminders now end when the pack fails or
   never comes, and a saved head item only goes back over the plugin's own overlay item.
-- A server stop or `/intro reload` during a reminder lost the player's helmet, and could leave the
-  warning screen on their head for good. The helmet now comes back, and a leftover warning item is
-  taken off when the player joins outside the rooms. After a reload the old reminders no longer
-  came twice.
+- A server stop, crash or `/intro reload` during a reminder lost the player's helmet, and could
+  leave the warning screen on their head for good. The warning screen's item now carries the helmet
+  it replaced in its own data (`mcme:intro_head`), so the helmet comes back even from an item a
+  crash left on the head, when the player joins outside the rooms or enters one. A warning item the
+  player took off turns back into the helmet, and a player who dies during a reminder drops the
+  helmet instead of the warning item. After a reload the old reminders no longer came twice.
 - A player who rejoined in a room after a crash, or was teleported by staff from one room into the
   other, ended the introduction stuck in spectator mode. A room now keeps the player's own game
   mode in the player's data (`mcme:intro_gamemode`) while they are in it, so it comes back even

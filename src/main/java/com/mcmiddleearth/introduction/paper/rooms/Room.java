@@ -20,6 +20,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.EquippableComponent;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -80,6 +81,8 @@ public abstract class Room {
 
     // The player's own game mode while they are in a room, in the player's data.
     private static final NamespacedKey SAVED_GAME_MODE = NamespacedKey.fromString("mcme:intro_gamemode");
+    // The head item an overlay item replaced, in the overlay item's own data.
+    private static final NamespacedKey CARRIED_HEAD_ITEM = NamespacedKey.fromString("mcme:intro_head");
 
     // Where the rooms read a player's resource-pack status: MCME-Architect's RpManager. Tests replace
     // it, because RpManager cannot even be loaded without a running MCME-Architect.
@@ -203,11 +206,12 @@ public abstract class Room {
 
     /**
      * Takes an overlay item off the head of a player who joins outside the rooms. Only a crash
-     * leaves one there, and the item it replaced was only kept in memory, so it can't come back.
+     * leaves one there; the item it replaced comes back, as the overlay item carries it.
      */
     public static void removeLeftoverOverlay(Player player) {
-        if(isOverlayItem(player.getInventory().getItem(EquipmentSlot.HEAD))) {
-            player.getInventory().setItem(EquipmentSlot.HEAD, new ItemStack(Material.AIR));
+        ItemStack head = player.getInventory().getItem(EquipmentSlot.HEAD);
+        if(isOverlayItem(head)) {
+            player.getInventory().setItem(EquipmentSlot.HEAD, headItemToRestore(head));
         }
     }
 
@@ -396,16 +400,60 @@ public abstract class Room {
      * stops while they are in a room. Handing that back would leave them wearing it for good.
      * <p>
      * A leftover is recognised by its camera overlay, so it is only caught while that overlay is
-     * still one the rooms use in config.yml.
+     * still one the rooms use in config.yml. It carries the item it replaced, which comes back
+     * instead; one from before 1.4.1 carries none.
      *
-     * @param currentHead what the player wears now: never null, an AIR stack when the slot is empty
-     * @return the item to put back on the player's head later; AIR for a leftover overlay item
+     * @param currentHead what the player wears now, an AIR stack when the slot is empty
+     * @return the item to put back on the player's head later; for a leftover overlay item, the
+     *         item it carries, or AIR
      */
-    ItemStack headItemToRestore(ItemStack currentHead) {
+    public static ItemStack headItemToRestore(@Nullable ItemStack currentHead) {
         if(isOverlayItem(currentHead)) {
+            byte[] carried = currentHead.getItemMeta().getPersistentDataContainer()
+                    .get(CARRIED_HEAD_ITEM, PersistentDataType.BYTE_ARRAY);
+            if(carried != null) {
+                try {
+                    return ItemStack.deserializeBytes(carried);
+                } catch(RuntimeException e) {
+                    IntroductionPlugin.getInstance().getLogger().warning("An overlay item carried a head item that"
+                            + " can't be read any more: " + e.getMessage());
+                }
+            }
             return new ItemStack(Material.AIR);
         }
         return currentHead;
+    }
+
+    /**
+     * The overlay item to put on the head, carrying the item it replaces in its own data. After a
+     * crash nothing else knows that item.
+     */
+    private static ItemStack carrying(ItemStack overlayItem, ItemStack replaced) {
+        ItemStack carrier = overlayItem.clone();
+        if(replaced != null && !replaced.isEmpty()) {
+            ItemMeta meta = carrier.getItemMeta();
+            meta.getPersistentDataContainer().set(CARRIED_HEAD_ITEM, PersistentDataType.BYTE_ARRAY,
+                    replaced.serializeAsBytes());
+            carrier.setItemMeta(meta);
+        }
+        return carrier;
+    }
+
+    /**
+     * Turns the plugin's overlay items the player holds back into the items they carry. A player
+     * who took one off their head during a reminder kept it, and it carries their own head item.
+     */
+    private static void unpackOverlayItems(Player player) {
+        PlayerInventory inventory = player.getInventory();
+        ItemStack[] contents = inventory.getContents();
+        for(int slot = 0; slot < contents.length; slot++) {
+            if(isOverlayItem(contents[slot])) {
+                inventory.setItem(slot, headItemToRestore(contents[slot]));
+            }
+        }
+        if(isOverlayItem(player.getItemOnCursor())) {
+            player.setItemOnCursor(headItemToRestore(player.getItemOnCursor()));
+        }
     }
 
     public boolean isFixed(Player player) {
@@ -499,16 +547,16 @@ public abstract class Room {
      * Outside the rooms, during a reminder, the player can change their head item meanwhile. So the
      * saved item goes back only over an overlay item. When the overlay never went on, the player
      * still has their own item, and the saved one is forgotten. When the player took the overlay
-     * item off, the saved item exists only here, and goes into their inventory.
+     * item off, it still carries their item: the overlay items they hold turn back into the items
+     * they carry. Giving the saved item as well would make two, as the carried one comes back
+     * whenever the overlay item is found on a head again.
      */
     public void removeCameraOverlay(Player player) {
         UUID uuid = player.getUniqueId();
-        ItemStack saved = playerItems.get(uuid);
         if(isOverlayItem(player.getInventory().getItem(EquipmentSlot.HEAD))) {
-            player.getInventory().setItem(EquipmentSlot.HEAD, saved);
-        } else if(overlaid.contains(uuid) && saved != null && !saved.isEmpty()) {
-            player.getInventory().addItem(saved).values()
-                    .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+            player.getInventory().setItem(EquipmentSlot.HEAD, playerItems.get(uuid));
+        } else if(overlaid.contains(uuid)) {
+            unpackOverlayItems(player);
         }
         overlaid.remove(uuid);
         stopOverlayTask(player);
@@ -537,8 +585,9 @@ public abstract class Room {
                 if(isRpLoaded(data)) {
                     // What the overlay item replaces comes back: during a reminder the player can
                     // have changed their head item since it was saved.
-                    playerItems.put(player.getUniqueId(), headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD)));
-                    player.getInventory().setItem(EquipmentSlot.HEAD, overlayItem);
+                    ItemStack replaced = headItemToRestore(player.getInventory().getItem(EquipmentSlot.HEAD));
+                    playerItems.put(player.getUniqueId(), replaced);
+                    player.getInventory().setItem(EquipmentSlot.HEAD, carrying(overlayItem, replaced));
                     overlaid.add(player.getUniqueId());
                     if(!chatSent) {
                         sendChat(player);
