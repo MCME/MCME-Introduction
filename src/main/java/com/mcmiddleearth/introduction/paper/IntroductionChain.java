@@ -29,6 +29,8 @@ public class IntroductionChain {
     private static final Map<UUID, BukkitTask> playerTasks = new HashMap<>();
     private static final List<Advancement> advancements = new ArrayList<>();
     private static final Set<UUID> finishedPlayers = new HashSet<>();
+    // Players whose tips were running when /intro reload took the tips down: load() resumes them.
+    private static final Set<UUID> resumeAfterLoad = new HashSet<>();
 
     private static final String advancementKey = "mcme:introchain";
 
@@ -76,6 +78,14 @@ public class IntroductionChain {
                         "{\"display\":" + chainDisplays.get(i) + ", \"criteria\":{\"manual\":{\"trigger\":\"minecraft:impossible\"}}}"));
             }
         }
+        // The tips go on where they were, after the initial delay.
+        resumeAfterLoad.forEach(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if(player != null) {
+                continueChain(player);
+            }
+        });
+        resumeAfterLoad.clear();
     }
 
     public static void startChain(Player player) {
@@ -127,9 +137,11 @@ public class IntroductionChain {
                             int stage = playerStages.get(player.getUniqueId());
 //Logger.getGlobal().info("Stage: " + stage + " for " + player.getName());
                             if (stage < advancements.size()) {
-                                player.getAdvancementProgress(advancements.get(stage)).awardCriteria("manual");
+                                // Taken back later from this advancement: a reload empties the list meanwhile.
+                                Advancement tip = advancements.get(stage);
+                                player.getAdvancementProgress(tip).awardCriteria("manual");
                                 Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
-                                    player.getAdvancementProgress(advancements.get(stage)).revokeCriteria("manual");
+                                    player.getAdvancementProgress(tip).revokeCriteria("manual");
                                     playerStages.put(player.getUniqueId(), stage + 1);
                                 }, 200);
                             } else {
@@ -153,6 +165,15 @@ public class IntroductionChain {
     public static void unload() {
         // The advancements stay registered: load() picks them up again. See removeAdvancements().
         advancements.clear();
+        // Without tips loaded, a running chain would end at its next turn. Each player keeps their
+        // stage, and load() starts the chain again.
+        playerTasks.forEach((uuid, task) -> {
+            if(!task.isCancelled()) {
+                resumeAfterLoad.add(uuid);
+                task.cancel();
+            }
+        });
+        playerTasks.clear();
     }
 
     /**

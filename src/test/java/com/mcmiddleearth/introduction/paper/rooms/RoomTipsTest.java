@@ -97,6 +97,37 @@ class RoomTipsTest extends RoomTestBase {
         assertEquals(allTips(), tipsShown);
     }
 
+    @Test
+    void theTipsCarryOnAfterAReloadInTheirTurn() {
+        IntroductionChain.startChain(player);
+
+        // The first tip's turn comes while the plugin is reloading.
+        server.getScheduler().performTicks(FIRST_TIP - 10);
+        reload();
+        server.getScheduler().performTicks(FIRST_TIP + TIP_PERIOD * 2L * tipCount());
+
+        assertEquals(allTips(), tipsShown);
+    }
+
+    @Test
+    void theTipsCarryOnAfterAReloadWhileOneIsShown() {
+        IntroductionChain.startChain(player);
+
+        // A tip is taken back 200 ticks after it is shown, here while the plugin is reloading.
+        server.getScheduler().performTicks(FIRST_TIP + 190);
+        reload();
+        server.getScheduler().performTicks(FIRST_TIP + TIP_PERIOD * 2L * tipCount());
+
+        assertEquals(allTips(), tipsShown);
+    }
+
+    /** What /intro reload does: the data is loaded again 20 ticks after it was taken down. */
+    private void reload() {
+        plugin.unloadData();
+        server.getScheduler().performTicks(20);
+        plugin.loadData();
+    }
+
     private int tipCount() {
         return plugin.getConfig().getStringList("introductionChain.advancementDisplays").size();
     }
