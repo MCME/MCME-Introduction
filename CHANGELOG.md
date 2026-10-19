@@ -1,8 +1,9 @@
 # Changelog
 
-## [1.4.1] - unreleased
+## [1.4.1] - 2026-10-19
 
-Fixes from the audit of 2026-10-19.
+Fixes from the audit of 2026-10-19. This release also brings 1.4.0, the flow log, which was not
+released on its own. Tested on MCME's dev network.
 
 ### Fixed
 - A player whose resource pack never loaded and who swapped helmets during a reminder lost the new
@@ -58,7 +59,7 @@ Fixes from the audit of 2026-10-19.
   seconds instead of each waiting for it. The start-up log no longer says the database was set up
   when it wasn't.
 
-## [1.4.0] - unreleased
+## [1.4.0] - not released on its own; part of 1.4.1
 
 ### Added
 - The flow log: a JSON line for each step a player takes through the rooms, in
