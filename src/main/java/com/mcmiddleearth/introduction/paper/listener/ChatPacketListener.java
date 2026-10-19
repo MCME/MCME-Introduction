@@ -5,6 +5,9 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.WrappedChatComponent;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import org.bukkit.entity.Player;
 
@@ -44,13 +47,33 @@ public class ChatPacketListener extends PacketAdapter {
 
     /**
      * Whether a chat message must be hidden from a player. A silenced player sees only this
-     * plugin's own messages, which carry the channel name as their insertion.
+     * plugin's own messages, whose root component carries the channel name as its insertion.
      *
      * @param messageJson the message as JSON, or null when the packet holds no readable message
      */
     public static boolean isBlocked(UUID uuid, String messageJson) {
-        return silenced.contains(uuid)
-                && !(messageJson != null && messageJson.contains(IntroductionPlugin.CHANNEL));
+        return silenced.contains(uuid) && !isOwnMessage(messageJson);
+    }
+
+    /**
+     * Whether a message is one of the plugin's own. Only the root's insertion counts: the channel
+     * name in the text, or in a part of the message, is something anyone can type.
+     */
+    private static boolean isOwnMessage(String messageJson) {
+        if (messageJson == null) {
+            return false;
+        }
+        try {
+            JsonElement root = JsonParser.parseString(messageJson);
+            if (!root.isJsonObject()) {
+                return false;
+            }
+            JsonElement insertion = root.getAsJsonObject().get("insertion");
+            return insertion != null && insertion.isJsonPrimitive()
+                    && IntroductionPlugin.CHANNEL.equals(insertion.getAsString());
+        } catch (JsonParseException e) {
+            return false;
+        }
     }
 
     public static void silence(Player player) {

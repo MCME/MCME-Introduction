@@ -5,6 +5,8 @@ import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.json.JSONComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -17,6 +19,7 @@ import java.io.IOException;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -113,5 +116,24 @@ class RoomSilenceTest extends RoomTestBase {
         server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + 1);
 
         assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), null), "chat back outside the rooms");
+    }
+
+    @Test
+    void theRoomsOwnTextsReachASilencedPlayer() {
+        SecondRoom.clientVersion = p -> ProtocolVersion.v1_21_4;
+        plugin.getFirst().handleEnter(player);
+
+        plugin.getFirst().sendChat(player);
+        plugin.getSecond().sendChat(player);
+
+        int texts = 0;
+        Component message;
+        while ((message = player.nextComponentMessage()) != null) {
+            String json = JSONComponentSerializer.json().serialize(message);
+            assertFalse(ChatPacketListener.isBlocked(player.getUniqueId(), json), "hidden: " + json);
+            texts++;
+        }
+        assertEquals(2, texts, "the welcome text and the version warning");
+        plugin.getFirst().handleExit(player, false, Exit.LEFT);
     }
 }

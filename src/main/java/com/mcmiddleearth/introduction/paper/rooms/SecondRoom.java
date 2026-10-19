@@ -237,7 +237,9 @@ public class SecondRoom extends Room {
     }
 
     private void sendMessage(Player player, Component message) {
-        player.sendMessage(message);
+        // Its parts carry the plugin's insertion, but only the whole message's gets past the chat
+        // filter of a player in a room.
+        player.sendMessage(message.insertion(IntroductionPlugin.CHANNEL));
         //player.sendActionBar(Component.text("1.21.4         ").append(Component.text(".").color(NamedTextColor.BLACK)));
     }
 
