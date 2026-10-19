@@ -3,7 +3,11 @@ package com.mcmiddleearth.introduction.paper.confirmData;
 import com.mcmiddleearth.introduction.paper.PluginTestBase;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -66,6 +70,28 @@ class ConfirmDataManagerTest extends PluginTestBase {
         assertEquals("optifine=true", database.nextWrite());
 
         assertFalse(database.moreWrites(), "more writes");
+    }
+
+    @Test
+    void anUnreachableDatabaseIsLeftAloneForAMinute() {
+        // Each login waits for its read, up to 10 seconds against a database that doesn't answer.
+        FakeDatabaseConnector database = new FakeDatabaseConnector(null);
+        ConfirmDataManager manager = new ConfirmDataManager(database);
+        long[] now = {0};
+        manager.clock = () -> now[0];
+        database.goUnreachable();
+
+        List<LogRecord> logged = logged(() -> {
+            manager.loadPlayerData(player.toString());
+            now[0] += TimeUnit.SECONDS.toNanos(30);
+            manager.loadPlayerData(player.toString());
+        });
+        assertEquals(1, database.reads(), "reads in the first minute");
+        assertEquals(1, logged.stream().filter(r -> r.getLevel() == Level.WARNING).count(), "warnings");
+
+        now[0] += TimeUnit.SECONDS.toNanos(31);
+        manager.loadPlayerData(player.toString());
+        assertEquals(2, database.reads(), "reads after the minute");
     }
 
     @Test

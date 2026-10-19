@@ -97,8 +97,10 @@ public class DatabaseConnector {
     /**
      * Read a player's confirmation row. If no row exists, returns null.
      * Synchronous method; caller must run async. Throws IllegalStateException on main thread.
+     *
+     * @throws SQLException when the database can't be reached or read, which the caller reports
      */
-    public ConfirmRow readRow(String playerUUID) {
+    public ConfirmRow readRow(String playerUUID) throws SQLException {
         ensureNotMainThread();
         if (playerUUID == null || !initialized) return null;
         String sql = "SELECT optifine, ignore_confirmed FROM confirm_data WHERE player_uuid = ?";
@@ -112,8 +114,6 @@ public class DatabaseConnector {
                     return new ConfirmRow(playerUUID, optifine, ignore);
                 }
             }
-        } catch (SQLException e) {
-            IntroductionPlugin.getInstance().getLogger().log(Level.WARNING, "Failed to read confirm_data row: " + e.getMessage(), e);
         }
         return null;
     }

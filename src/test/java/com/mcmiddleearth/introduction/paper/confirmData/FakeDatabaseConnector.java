@@ -1,8 +1,10 @@
 package com.mcmiddleearth.introduction.paper.confirmData;
 
+import java.sql.SQLException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A connector that is set up, with no database behind it: it hands out one row, or none, and
@@ -13,6 +15,8 @@ public class FakeDatabaseConnector extends DatabaseConnector {
     private final ConfirmRow row;
     private final BlockingQueue<String> writes = new LinkedBlockingQueue<>();
     private volatile Thread readOn;
+    private final AtomicInteger reads = new AtomicInteger();
+    private volatile boolean unreachable = false;
 
     public FakeDatabaseConnector(ConfirmRow row) {
         this.row = row;
@@ -24,9 +28,23 @@ public class FakeDatabaseConnector extends DatabaseConnector {
     }
 
     @Override
-    public ConfirmRow readRow(String playerUUID) {
+    public ConfirmRow readRow(String playerUUID) throws SQLException {
         readOn = Thread.currentThread();
+        reads.incrementAndGet();
+        if (unreachable) {
+            throw new SQLException("Communications link failure");
+        }
         return row;
+    }
+
+    /** From now on the database can't be reached. */
+    public void goUnreachable() {
+        unreachable = true;
+    }
+
+    /** How many rows were asked for. */
+    public int reads() {
+        return reads.get();
     }
 
     @Override

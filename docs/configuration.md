@@ -138,7 +138,9 @@ The compatibility room picks its screen and its text by client:
 
 The connection uses `useSSL=false&autoReconnect=true&connectTimeout=5000&socketTimeout=5000`: a
 player's login waits for their row, at most about 5 seconds each for connecting and for the answer.
-These settings are read once at startup.
+After a read fails, logins skip the database for 60 seconds (with one warning in the log) and go on
+with the choices known on the server. A confirmation writes only its own choice. These settings
+are read once at startup.
 
 ## locations.yml
 

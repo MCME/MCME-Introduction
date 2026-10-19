@@ -13,7 +13,16 @@ import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
  */
 public class ConfirmPreLoginListener implements Listener {
 
-    private final ConfirmDataManager manager = IntroductionPlugin.getInstance().getConfirmDataManager();
+    private final ConfirmDataManager manager;
+
+    public ConfirmPreLoginListener() {
+        this(IntroductionPlugin.getInstance().getConfirmDataManager());
+    }
+
+    // Tests hand in a manager with a connector of their own: no database runs in them.
+    ConfirmPreLoginListener(ConfirmDataManager manager) {
+        this.manager = manager;
+    }
 
     @EventHandler
     public void onPreLogin(AsyncPlayerPreLoginEvent event) {

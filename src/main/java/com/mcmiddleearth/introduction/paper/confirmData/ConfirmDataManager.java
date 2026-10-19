@@ -3,9 +3,12 @@ package com.mcmiddleearth.introduction.paper.confirmData;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import org.bukkit.Bukkit;
 
+import java.sql.SQLException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.logging.Logger;
 
 /**
@@ -20,12 +23,22 @@ public class ConfirmDataManager {
 
     private final DatabaseConnector databaseConnector;
 
+    // The time in nanoseconds; tests set it.
+    LongSupplier clock = System::nanoTime;
+
+    // After a failed read, logins skip the database for this long.
+    private static final long READ_PAUSE = TimeUnit.SECONDS.toNanos(60);
+    private volatile boolean readsPaused = false;
+    private volatile long readsPausedSince;
+
     public ConfirmDataManager() {
         this(new DatabaseConnector());
     }
 
-    // Tests hand in a connector of their own: no database runs in them.
-    ConfirmDataManager(DatabaseConnector databaseConnector) {
+    /**
+     * With a connector of the caller's own: tests hand in one, as no database runs in them.
+     */
+    public ConfirmDataManager(DatabaseConnector databaseConnector) {
         this.databaseConnector = databaseConnector;
         if (this.databaseConnector.isEnabled()) {
             this.databaseConnector.initialize();
@@ -129,10 +142,22 @@ public class ConfirmDataManager {
     /**
      * Reads the player's row and applies it, before returning: called in the pre-login event, so
      * the choices are known when the player joins. Blocks, so never call it on the main thread.
+     * <p>
+     * Each login waits for its read, up to the connection's timeouts. So after a failed read the
+     * database is left alone for a minute, and logins go on with the choices known here.
      */
     public void loadPlayerData(String uuid) {
 //Logger.getGlobal().info("Confirm: load player data");
         if (databaseConnector == null || !databaseConnector.isInitialized()) return;
-        applyRow(databaseConnector.readRow(uuid));
+        if (readsPaused && clock.getAsLong() - readsPausedSince < READ_PAUSE) return;
+        try {
+            applyRow(databaseConnector.readRow(uuid));
+            readsPaused = false;
+        } catch (SQLException e) {
+            readsPausedSince = clock.getAsLong();
+            readsPaused = true;
+            IntroductionPlugin.getInstance().getLogger().warning("Could not read players' /confirm choices from the"
+                    + " database (" + e.getMessage() + "). Logins skip the database for 60 seconds.");
+        }
     }
 }
