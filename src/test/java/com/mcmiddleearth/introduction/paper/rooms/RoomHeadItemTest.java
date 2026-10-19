@@ -5,6 +5,7 @@ import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Item;
@@ -202,6 +203,20 @@ class RoomHeadItemTest extends RoomTestBase {
         long dropped = drops.stream().filter(item -> item.getType() == Material.DIAMOND_HELMET).count();
         assertEquals(1, count(Material.DIAMOND_HELMET) + dropped, "diamond helmets, kept and dropped");
         assertTrue(drops.stream().noneMatch(Room::isOverlayItem), "a warning screen item dropped");
+    }
+
+    @Test
+    void aHelmetUnderAWarningScreenComesBackAfterAWorldChange() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(Material.DIAMOND_HELMET));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(5);
+
+        player.teleport(new Location(server.addSimpleWorld("elsewhere"), 0, 64, 0));
+        server.getScheduler().performTicks(reminderDuration() + 40);
+
+        assertEquals(Material.DIAMOND_HELMET, head().getType());
+        assertEquals(1, count(Material.DIAMOND_HELMET), "diamond helmets");
     }
 
     @Test
