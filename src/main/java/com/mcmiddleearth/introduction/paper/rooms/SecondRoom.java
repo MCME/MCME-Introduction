@@ -58,7 +58,10 @@ public class SecondRoom extends Room {
     // Client versions that get no compatibility warning, from supportedVersions in config.yml.
     private final List<String> supportedVersions;
 
+    // Each player's reminder: the repeating task, or the delayed start after leaving the room.
     private final Map<UUID, BukkitTask> reminderTasks = new HashMap<>();
+    // The task that takes a reminder's warning screen off again.
+    private final Map<UUID, BukkitTask> stopReminderTasks = new HashMap<>();
 
     public SecondRoom(ConfigurationSection config, ConfigurationSection locationConfig) {
         super(config, locationConfig);
@@ -94,8 +97,19 @@ public class SecondRoom extends Room {
     public void teleport(Player player, Room previous, Room next, Exit how) {
         super.teleport(player, previous, next, how);
         long reminederDelay = IntroductionPlugin.getInstance().getConfig().getLong("reminderPeriod",600);
-        Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
-                                           ()-> startReminderTask(player), reminederDelay);
+        cancelReminderTask(player);
+        reminderTasks.put(player.getUniqueId(), Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(),
+                                           ()-> startReminderTask(player), reminederDelay));
+    }
+
+    @Override
+    public void unload() {
+        // A reload builds new rooms: the reminders of this one must not come again.
+        reminderTasks.values().forEach(BukkitTask::cancel);
+        reminderTasks.clear();
+        stopReminderTasks.values().forEach(BukkitTask::cancel);
+        stopReminderTasks.clear();
+        super.unload();
     }
 
     @Override
@@ -273,13 +287,17 @@ public class SecondRoom extends Room {
      * on then, but the player's head item stays saved until the reminder ends.
      */
     public void startStopReminderTask(Player player) {
-        new BukkitRunnable() {
+        BukkitTask previous = stopReminderTasks.remove(player.getUniqueId());
+        if(previous != null) {
+            previous.cancel();
+        }
+        stopReminderTasks.put(player.getUniqueId(), new BukkitRunnable() {
             int rpLoadTime = -1;
             int attempts = 0;
             @Override
             public void run() {
                 if(!player.isOnline() || IntroductionPlugin.getInstance().isInsideRoom(player)) {
-                    cancel();
+                    end();
                     return;
                 }
                 attempts++;
@@ -291,10 +309,15 @@ public class SecondRoom extends Room {
                         > rpLoadTime + IntroductionPlugin.getInstance().getConfig().getLong("reminderDuration", 100);
                 if(shown || isRpFail(data) || attempts > 1000) {
                     handleOverride(player, false);
-                    cancel();
+                    end();
                 }
             }
-        }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 20L);
+
+            private void end() {
+                cancel();
+                stopReminderTasks.remove(player.getUniqueId());
+            }
+        }.runTaskTimer(IntroductionPlugin.getInstance(), 0L, 20L));
     }
 
 }

@@ -147,6 +147,35 @@ public abstract class Room {
     public void unload() {
         // The advancement stays registered: the next Room with this key picks it up again.
         // See removeAdvancement().
+        releaseHeadItems();
+    }
+
+    /**
+     * Gives every player whose head item the room holds their own item back, wherever they are.
+     * Called at a shutdown or a reload, after the players in the room have left it: what is left
+     * are reminders, whose overlay item would stay on the head while the item it replaced is
+     * forgotten.
+     */
+    private void releaseHeadItems() {
+        for(UUID uuid : List.copyOf(playerItems.keySet())) {
+            Player player = Bukkit.getPlayer(uuid);
+            if(player != null) {
+                removeCameraOverlay(player);
+            }
+        }
+        playerItems.clear();
+        overlaid.clear();
+        fixedPlayers.clear();
+    }
+
+    /**
+     * Takes an overlay item off the head of a player who joins outside the rooms. Only a crash
+     * leaves one there, and the item it replaced was only kept in memory, so it can't come back.
+     */
+    public static void removeLeftoverOverlay(Player player) {
+        if(isOverlayItem(player.getInventory().getItem(EquipmentSlot.HEAD))) {
+            player.getInventory().setItem(EquipmentSlot.HEAD, new ItemStack(Material.AIR));
+        }
     }
 
     /**
@@ -638,7 +667,10 @@ public abstract class Room {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    boolean isOverlayItem(ItemStack item) {
+    static boolean isOverlayItem(@Nullable ItemStack item) {
+        if(item == null) {
+            return false;
+        }
         ItemMeta meta = item.getItemMeta();
         if(meta != null) {
             EquippableComponent equip = meta.getEquippable();

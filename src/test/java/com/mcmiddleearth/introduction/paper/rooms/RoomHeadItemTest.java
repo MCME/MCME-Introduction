@@ -2,6 +2,7 @@ package com.mcmiddleearth.introduction.paper.rooms;
 
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerData;
 import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
+import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import org.bukkit.Material;
@@ -123,7 +124,7 @@ class RoomHeadItemTest extends RoomTestBase {
         swapHelmetFor(Material.GOLDEN_HELMET);
         packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
         server.getScheduler().performTicks(10);
-        assertTrue(room.isOverlayItem(head()), "the warning screen is on: " + head());
+        assertTrue(Room.isOverlayItem(head()), "the warning screen is on: " + head());
         server.getScheduler().performTicks(reminderDuration() + 40);
 
         assertEquals(Material.GOLDEN_HELMET, head().getType());
@@ -163,6 +164,58 @@ class RoomHeadItemTest extends RoomTestBase {
         server.getScheduler().performTicks(20 * 1000 + 40);
 
         assertFalse(room.isFixed(player), "the reminder still holds the player");
+    }
+
+    @Test
+    void aReloadDuringAReminderGivesTheHelmetBack() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(Material.DIAMOND_HELMET));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(5);
+
+        plugin.unloadData();
+
+        assertEquals(Material.DIAMOND_HELMET, head().getType());
+        assertEquals(1, count(Material.DIAMOND_HELMET), "diamond helmets");
+    }
+
+    @Test
+    void aShutdownDuringAReminderGivesTheHelmetBack() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(Material.DIAMOND_HELMET));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(5);
+
+        server.getPluginManager().disablePlugin(plugin);
+
+        assertEquals(Material.DIAMOND_HELMET, head().getType());
+    }
+
+    @Test
+    void noReminderFromBeforeAReloadComesAfterIt() {
+        packStatus.setCurrentRpStatus(RpPlayerStatus.SUCCESSFULLY_LOADED);
+        wear(new ItemStack(Material.DIAMOND_HELMET));
+        reminder().startReminderTask(player);
+        server.getScheduler().performTicks(reminderDuration() + 40);
+
+        plugin.unloadData();
+        plugin.loadData();
+
+        for (long tick = 1; tick <= plugin.getConfig().getLong("reminderPeriod") + 40; tick++) {
+            server.getScheduler().performOneTick();
+            assertEquals(Material.DIAMOND_HELMET, head().getType(), "the old reminder came again, tick " + tick);
+        }
+    }
+
+    @Test
+    void aLeftoverOverlayIsTakenOffOnJoiningOutsideTheRooms() {
+        // A crash left the warning screen's item on the head. The client needs no reminders now.
+        wear(leftoverOverlay());
+
+        server.getPluginManager().callEvent(new PlayerConnectEvent(player, PlayerConnectEvent.ConnectReason.JOIN_PROXY));
+        server.getScheduler().performTicks(plugin.getConfig().getLong("joinDelay") + 1);
+
+        assertTrue(head().isEmpty(), "head after joining: " + head());
     }
 
     /** The compatibility room, set up so the player gets reminders: a client on 1.21.4. */

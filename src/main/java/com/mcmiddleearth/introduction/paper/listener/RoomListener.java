@@ -189,6 +189,8 @@ Logger.getGlobal().info("Allow teleport: "+allowedTeleportOut.contains(player.ge
                 }
             }, IntroductionPlugin.getInstance().getConfig().getLong("joinDelay",10));
          } else {
+            // A crash during a reminder leaves its warning screen on the head for good.
+            Room.removeLeftoverOverlay(event.getPlayer());
             Bukkit.getScheduler().runTaskLater(IntroductionPlugin.getInstance(), () -> {
                 Room second = IntroductionPlugin.getInstance().getSecond();
                 Player player = event.getPlayer();
