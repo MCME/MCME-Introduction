@@ -28,7 +28,10 @@ Fixes from the audit of 2026-10-19.
   error.
 - During a reload a player in the black screen was carried on by the old rooms, a delayed "chat
   back" from before the reload could show chat to a player in a room, and the tips could end, or
-  show one tip again, for players whose turn came during the reload.
+  show one tip again, for players whose turn came during the reload. A player who joined just
+  before a reload was put in the old room. Now the replaced rooms take nobody in, a join waits for
+  the new rooms, the reminders that were running carry on in the new room, and chat that was about
+  to come back comes back at once, on the proxy too.
 - One blank or cut-off line in `finishedPlayerList.uid` stopped the introduction from starting.
   Bad lines are now skipped with a warning, and new finishers are added as a line at the end instead
   of the whole file being rewritten.
@@ -44,11 +47,15 @@ Fixes from the audit of 2026-10-19.
 - A broken entry in `introductionChain.advancementDisplays` made the tips fail every period and the
   shutdown leave players in spectator mode. It is now left out, with a warning naming its key.
 - `/confirm reset` from the console threw an error; it is now for players only.
-- Chat in which someone typed `mcme:intro` got past the chat filter of the rooms.
+- Chat in which someone typed `mcme:intro` got past the chat filter of the rooms. Only a message
+  whose root carries the insertion `mcme:intro` gets through now; one that isn't valid JSON gets the
+  old check.
 - With the database, a player's choices could arrive after they joined, so a confirmed player got
   the compatibility room again, and a `/confirm reset` on another server was only seen after a
-  restart. The choices are now read before the player joins and the row sets both of them. The
-  connection times out after 5 seconds, and the start-up log no longer says the database was set up
+  restart. The choices are now read before the player joins and the row sets both of them. A
+  confirmation writes only its own choice, so it can't undo one made on another server. The
+  connection times out after 5 seconds, and after a failed read logins skip the database for 60
+  seconds instead of each waiting for it. The start-up log no longer says the database was set up
   when it wasn't.
 
 ## [1.4.0] - unreleased

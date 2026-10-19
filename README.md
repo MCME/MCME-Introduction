@@ -111,7 +111,7 @@ practice.
 
 | Command | Who | What it does |
 |---------|-----|--------------|
-| `/intro reload` | `introduction.reload` (op by default) | Reloads `config.yml` and `locations.yml` and rebuilds the rooms, a second after the command. Tells the sender when it starts and when it is done, or that it failed (the error is in the console); a second reload in that second is ignored. Players in a room leave it (game mode, head item and chat restored) and enter it again at their next move; a reminder's warning screen comes off, and the tips carry on. Changed advancement texts (the room and tip toasts) take effect at the next clean restart. |
+| `/intro reload` | `introduction.reload` (op by default) | Reloads `config.yml` and `locations.yml` and rebuilds the rooms, a second after the command. Tells the sender when it starts and when it is done, or that it failed (the error is in the console); a second reload in that second is ignored. Players in a room leave it (game mode, head item and chat restored) and enter it again at their next move; a reminder's warning screen comes off and the reminders go on from the next `reminderPeriod`, and the tips carry on. Changed advancement texts (the room and tip toasts) take effect at the next clean restart. |
 | `/intro glowitem <player> on\|off` | the console, or another sender that isn't a player | Turns the glowing items on or off for a player (see `itemGlow` in the configuration). |
 | `/confirm optifine` | players with a Forge-family client on a supported version | Leaves the compatibility room and stops its reminders for good. |
 | `/confirm ignore` | every player except those `/confirm optifine` is for | Leaves the compatibility room and stops its reminders for good. |
