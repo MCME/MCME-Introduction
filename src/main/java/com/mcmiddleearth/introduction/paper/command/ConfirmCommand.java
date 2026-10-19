@@ -58,6 +58,8 @@ public class ConfirmCommand {
                             return Command.SINGLE_SUCCESS;
                         }))
                 .then(Commands.literal("reset")
+                        // The sender's own choices: the console and command blocks have none.
+                        .requires(sender -> sender.getSender() instanceof Player)
                         .executes(ctx -> {
                             Player player =  (Player) ctx.getSource().getSender();
                             FlowEvents.confirm(player, "reset", IntroductionPlugin.getInstance().isInsideRoom(player));

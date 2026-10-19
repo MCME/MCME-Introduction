@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.function.Function;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -436,6 +437,16 @@ class RoomFlowLogTest extends RoomTestBase {
 
         assertEquals(1, events("exit").size(), "exits");
         assertEquals(1, events("finish").size(), "the welcome title and the tips start");
+    }
+
+    @Test
+    void aConfirmResetFromTheConsoleIsRefused() {
+        server.dispatchCommand(server.getConsoleSender(), "help");
+
+        // It resets the sender's own choices, and the console has none.
+        assertDoesNotThrow(() -> server.dispatchCommand(server.getConsoleSender(), "confirm reset"));
+
+        assertTrue(events("confirm").isEmpty());
     }
 
     /** Puts the player on the list of players who finished the introduction before. */
