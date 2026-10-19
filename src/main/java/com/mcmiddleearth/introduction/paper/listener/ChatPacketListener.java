@@ -57,7 +57,9 @@ public class ChatPacketListener extends PacketAdapter {
 
     /**
      * Whether a message is one of the plugin's own. Only the root's insertion counts: the channel
-     * name in the text, or in a part of the message, is something anyone can type.
+     * name in the text, or in a part of the message, is something anyone can type. A message that
+     * can't be read as JSON gets the rule from before 1.4.1, the channel name anywhere in it, so
+     * the plugin's own texts never vanish over a quirk of the JSON.
      */
     private static boolean isOwnMessage(String messageJson) {
         if (messageJson == null) {
@@ -72,7 +74,7 @@ public class ChatPacketListener extends PacketAdapter {
             return insertion != null && insertion.isJsonPrimitive()
                     && IntroductionPlugin.CHANNEL.equals(insertion.getAsString());
         } catch (JsonParseException e) {
-            return false;
+            return messageJson.contains(IntroductionPlugin.CHANNEL);
         }
     }
 

@@ -81,8 +81,10 @@ class ChatPacketListenerTest extends PluginTestBase {
     }
 
     @Test
-    void aMessageThatIsNotJsonIsBlocked() {
-        assertTrue(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), "{" + IntroductionPlugin.CHANNEL));
+    void aMessageThatIsNotJsonFallsBackToTheTextCheck() {
+        // As before 1.4.1: a message that names the channel gets through, others are hidden.
+        assertFalse(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), "{" + IntroductionPlugin.CHANNEL));
+        assertTrue(ChatPacketListener.isBlocked(silencedPlayer.getUniqueId(), "{Hello everyone"));
     }
 
     @Test
