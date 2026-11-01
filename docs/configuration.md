@@ -67,8 +67,9 @@ the login and shows the list in the server list. It reads the file again when it
 next login or ping. The proxy also follows `flowLog.enabled` and `flowLog.keepDays` for its own flow
 log, read when it starts.
 
-**It fails open:** without the link, with invalid YAML, or with `supportedVersions` missing, empty or
-not a list of versions, the proxy lets every version in and logs why. Unlike the backends, it has no
+**It fails open:** without the link, with invalid YAML, or with `supportedVersions` missing, empty,
+not a list of versions, or without any version this Velocity knows (a typo such as `26.22`), the
+proxy lets every version in and logs why. Unlike the backends, it has no
 shipped list to fall back on, and it can't know "the server's own version" that `[]` means there.
 
 | Key | If missing | Meaning |

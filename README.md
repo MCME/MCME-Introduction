@@ -93,9 +93,9 @@ client versions, and the proxy enforces it.
   the rest of the entry.
 - **Live edits.** The proxy reads the file again when it changes, following the link, at the next
   login or server-list ping. Adding a version needs no restart and no command.
-- **It fails open.** No link, invalid YAML, a missing, empty or malformed list, or
-  `proxy.versionCheck: false` lets every version in, with a warning in the proxy log that says why.
-  A typo never locks the network out.
+- **It fails open.** No link, invalid YAML, a missing, empty or malformed list, a list with no
+  version this Velocity knows (a typo such as `26.22`), or `proxy.versionCheck: false` lets every
+  version in, with a warning in the proxy log that says why. A typo never locks the network out.
 - **Logs.** The proxy log says which versions are enforced, at startup and after each change, warns
   about a listed version this Velocity doesn't know, and notes each refusal with the player's name
   and client version. The proxy's own flow log records the refusals without names (see below).
