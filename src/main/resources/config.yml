@@ -15,11 +15,21 @@ roomEnterMoveDelay: 5
 # Client versions that get no compatibility warning in the second room. Releases that share a
 # protocol count as one: 26.1.2 also covers 26.1 and 26.1.1. Without this list, only the
 # server's own version is supported. <supported_versions> in a message shows this list.
+# The proxy refuses every other client version at the door (see proxy below).
 supportedVersions: ['26.2', '26.3']
+
+# Read only by the proxy, through plugins/mcme-introduction/config.yml there: a link to this file.
+# It refuses every client version not in supportedVersions before the login, and shows the list in
+# the server list. An edit takes effect at the next login. versionCheck: false lets every version in.
+proxy:
+  versionCheck: true
+  messageUnsupportedVersion: '{"text":"Your Minecraft version is unsupported. MCME supports Minecraft <supported_versions>. Please switch to one of these in the Minecraft launcher and join again."}'
+  serverListVersion: 'Minecraft <supported_versions>'
 
 # The flow log: a line for each step a player takes through the rooms, in flow/<date>.jsonl in
 # this plugin's folder (one file per UTC day). docs/flow-log.md in the plugin's repository
-# describes it. Days older than keepDays are deleted; 0 keeps them all.
+# describes it. Days older than keepDays are deleted; 0 keeps them all. The proxy writes its own
+# flow log with the same settings, read when it starts.
 flowLog:
   enabled: true
   keepDays: 90

@@ -18,7 +18,8 @@ One jar serves both sides of the network and is installed unchanged on each:
   the compatibility checks and reminders, the tips, the glowing items, and the `/intro` and
   `/confirm` commands.
 - **Velocity proxy plugin** (`com.mcmiddleearth.introduction.velocity.IntroductionPlugin`, id
-  `mcme-introduction`): hides proxy chat from players a backend reports as in a room.
+  `mcme-introduction`): refuses client versions the network doesn't support, before the login, and
+  hides proxy chat from players a backend reports as in a room.
 
 ## How the rooms work
 
@@ -75,6 +76,33 @@ player chat messages and disconnects when one is missing, so dropping them is no
 
 Chat comes back `unsilenceDelay` ticks after the player leaves the last room.
 
+## The version check on the proxy
+
+Since 1.5.0, `supportedVersions` in the backends' `config.yml` is the network's one list of accepted
+client versions, and the proxy enforces it.
+
+- **The proxy's `plugins/mcme-introduction/config.yml` is a link** to the backends'
+  `plugins/MCME-Introduction/config.yml`. The proxy reads only `supportedVersions`, the `proxy`
+  section and `flowLog` from it.
+- **Refused at the door.** A client whose version is not in the list is refused before Mojang's
+  login, with `proxy.messageUnsupportedVersion`. A listed version covers every release that shares
+  its protocol, as on the backends: `26.1.2` also lets in 26.1 and 26.1.1. A login another plugin
+  already refused is left alone.
+- **The server list** shows `proxy.serverListVersion`, for example "Minecraft 26.2, 26.3", in red
+  for clients on other versions. It is set after other plugins, such as ServerListPlus, have built
+  the rest of the entry.
+- **Live edits.** The proxy reads the file again when it changes, following the link, at the next
+  login or server-list ping. Adding a version needs no restart and no command.
+- **It fails open.** No link, invalid YAML, a missing, empty or malformed list, or
+  `proxy.versionCheck: false` lets every version in, with a warning in the proxy log that says why.
+  A typo never locks the network out.
+- **Logs.** The proxy log says which versions are enforced, at startup and after each change, warns
+  about a listed version this Velocity doesn't know, and notes each refusal with the player's name
+  and client version. The proxy's own flow log records the refusals without names (see below).
+
+With the check on, an unsupported vanilla client no longer reaches the compatibility room: the room
+still explains Forge, OptiFine and Fabric without MCME's installer.
+
 ## Requirements
 
 | Component | Version |
@@ -102,7 +130,11 @@ practice.
    add it by hand.
 3. On the server with the rooms, create `plugins/MCME-Introduction/locations.yml` with the rooms'
    positions. The plugin never creates this file.
-4. Restart the server, or run `/intro reload`.
+4. On the proxy, link `plugins/mcme-introduction/config.yml` to a backend's
+   `plugins/MCME-Introduction/config.yml`, for example
+   `ln -s ../../servers/hub/plugins/MCME-Introduction/config.yml plugins/mcme-introduction/config.yml`.
+   Without the link the proxy lets every client version in and says so in its log.
+5. Restart the server, or run `/intro reload`. The proxy reads the linked file at every change.
 
 [docs/configuration.md](docs/configuration.md) describes every setting of `config.yml` and
 `locations.yml`.
@@ -129,6 +161,12 @@ In `plugins/MCME-Introduction/`:
   rooms (entering, the resource pack's result, leaving and how, finishing, reminders, `/confirm`),
   one file per UTC day, kept 90 days. It is meant for tools such as hub-flow;
   [docs/flow-log.md](docs/flow-log.md) describes it.
+
+On the proxy, in `plugins/mcme-introduction/`:
+
+- `config.yml`: the link to a backend's `config.yml` (see Installation).
+- `flow/YYYY-MM-DD.jsonl`: the proxy's flow log: the enforced versions and each refused client's
+  version, without names. Same format and settings as the backends' log.
 
 With `database.enabled: true`, players' `/confirm` choices are stored in the table `confirm_data`
 (`player_uuid`, `optifine`, `ignore_confirmed`), which the plugin creates; a player's choices are
@@ -180,8 +218,12 @@ Tests that let the rooms check the resource pack replace `Room.rpPlayerData`: MC
 builds two rooms in a world. Flow log tests read the log back with `FlowLogFiles` after
 `getFlowLog().close()`, which writes the events still waiting.
 
+The proxy's version check is tested without a proxy: `VersionPolicyTest` reads config files
+(including through a symlink), and `VersionCheckTest` hands `VersionCheck` real Velocity events with
+a mocked connection.
+
 Not covered by tests:
-- the Velocity side;
+- the rest of the Velocity side (the generated main class, the chat filter, the plugin messages);
 - the ProtocolLib call that reads a packet's message, because ProtocolLib's packet classes need a
   real server.
 

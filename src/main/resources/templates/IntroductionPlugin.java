@@ -2,12 +2,14 @@ package com.mcmiddleearth.introduction.velocity;
 
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
+import com.mcmiddleearth.introduction.flow.FlowLog;
 import com.velocitypowered.api.event.ResultedEvent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
@@ -38,6 +40,10 @@ public final class IntroductionPlugin {
     private final Logger logger;
     // Written on Velocity's event threads, read on Netty's threads for every packet sent.
     private final Set<UUID> silenced = ConcurrentHashMap.newKeySet();
+    // config.yml in this plugin's folder is a link to the backends' config.yml: one supportedVersions
+    // for the whole network.
+    private final FlowLog flowLog;
+    private final VersionCheck versionCheck;
 
     /**
      * Velocity constructs this class through Guice, so the constructor must carry an
@@ -55,6 +61,11 @@ public final class IntroductionPlugin {
     public IntroductionPlugin(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
         this.proxyServer = server;
         this.logger = logger;
+        Path config = dataDirectory.resolve("config.yml");
+        FlowLogSettings flowLogSettings = FlowLogSettings.read(config);
+        this.flowLog = FlowLog.open(dataDirectory.resolve("flow"), flowLogSettings.enabled(), flowLogSettings.keepDays(),
+                logger::warn);
+        this.versionCheck = new VersionCheck(logger, config, flowLog);
     }
 
     @Subscribe
@@ -62,6 +73,14 @@ public final class IntroductionPlugin {
         proxyServer.getChannelRegistrar().register(MinecraftChannelIdentifier.from(com.mcmiddleearth.introduction.paper.IntroductionPlugin.CHANNEL));
         logger.info("Listening on " + com.mcmiddleearth.introduction.paper.IntroductionPlugin.CHANNEL
                 + " for players in the introduction rooms, whose proxy chat is hidden.");
+        versionCheck.start("${plugin.version}");
+        proxyServer.getEventManager().register(this, versionCheck);
+    }
+
+    @Subscribe
+    public void onProxyShutdown(ProxyShutdownEvent event) {
+        versionCheck.stop();
+        flowLog.close();
     }
 
     @Subscribe

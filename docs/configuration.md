@@ -50,7 +50,7 @@ Placeholders:
 
 | Key | If missing | Meaning |
 |-----|------------|---------|
-| `supportedVersions` | *shipped*: `['26.2', '26.3']` | Client versions that skip the compatibility room (vanilla clients, and Fabric with MCME's marker mod). A version covers every release that shares its protocol: `26.1.2` also covers 26.1 and 26.1.1. Quote the versions. An empty list, `[]`, supports only the server's own version. |
+| `supportedVersions` | *shipped*: `['26.2', '26.3']` | Client versions that skip the compatibility room (vanilla clients, and Fabric with MCME's marker mod). A version covers every release that shares its protocol: `26.1.2` also covers 26.1 and 26.1.1. Quote the versions. An empty list, `[]`, supports only the server's own version. Since 1.5.0 the proxy also refuses every other version at the door: see `proxy` below. |
 | `joinDelay` | `10` | Ticks after a join before a room, the tips or the reminders start for the player. |
 | `roomEnterMoveDelay` | `10` | Ticks after entering a room before the step to the left counts. A room's own `roomEnterMoveDelay` wins. |
 | `reminderPeriod` | `600` | Ticks between two reminders of the compatibility room. |
@@ -58,6 +58,26 @@ Placeholders:
 | `rpMessages.*` | see below | Resource-pack messages for all rooms. A room can override each key. |
 | `flowLog.enabled` | `true` | Whether the plugin writes the flow log, a line for each step a player takes through the rooms, in `flow/` in its folder. [flow-log.md](flow-log.md) describes it. |
 | `flowLog.keepDays` | `90` | Days of flow log to keep; older days are deleted. `0` keeps them all. |
+
+### `proxy`: the version check on the proxy
+
+Read only by the proxy, from its `plugins/mcme-introduction/config.yml`, a link to a backend's
+`config.yml` (since 1.5.0). The proxy refuses every client version not in `supportedVersions` before
+the login and shows the list in the server list. It reads the file again when it changes, at the
+next login or ping. The proxy also follows `flowLog.enabled` and `flowLog.keepDays` for its own flow
+log, read when it starts.
+
+**It fails open:** without the link, with invalid YAML, or with `supportedVersions` missing, empty or
+not a list of versions, the proxy lets every version in and logs why. Unlike the backends, it has no
+shipped list to fall back on, and it can't know "the server's own version" that `[]` means there.
+
+| Key | If missing | Meaning |
+|-----|------------|---------|
+| `proxy.versionCheck` | `true` | `false` turns the check off: every version gets in, and the server list is left alone. |
+| `proxy.messageUnsupportedVersion` | "Your Minecraft version is unsupported. MCME supports Minecraft `<supported_versions>`. Please switch to one of these in the Minecraft launcher and join again." | The disconnect screen of a refused client. JSON text or plain text. A clickEvent does nothing on a disconnect screen. |
+| `proxy.serverListVersion` | `Minecraft <supported_versions>` | The version name in the server list, in red for clients on other versions. |
+
+`<supported_versions>` in these two texts is the list joined with ", ", as in the rooms' texts.
 
 ### Resource-pack messages
 
