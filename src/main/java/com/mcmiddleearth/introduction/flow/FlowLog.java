@@ -16,8 +16,9 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -34,13 +35,16 @@ import static java.nio.file.StandardOpenOption.CREATE;
  * of the plugin write their log with it.
  * <p>
  * On the backend {@link #log} is called on the server thread, which builds the line: player state
- * is only safe to read there. One background thread writes the lines, so the server never waits
- * for the disk. Each line is appended on its own, so a reader can read a file at any time; only a
- * last line still being written can be incomplete.
+ * is only safe to read there. On the proxy it is called from several threads at once. One
+ * background thread writes the lines, in the order of their times, so neither waits for the disk.
+ * Each line is appended on its own, so a reader can read a file at any time; only a last line still
+ * being written can be incomplete.
  */
 public final class FlowLog {
 
     private static final Pattern DAY_FILE = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})\\.jsonl");
+    // Lines that may wait for the disk at once.
+    static final int MAX_WAITING = 10_000;
 
     private final Path folder;
     private final int keepDays;
@@ -49,6 +53,8 @@ public final class FlowLog {
     // Where a problem is reported: the server's or the proxy's log.
     private final Consumer<String> warn;
     private volatile boolean closed;
+    // Whether events are being dropped because too many wait to be written; reported once per spell.
+    private volatile boolean dropping;
 
     // Used by the writer thread only.
     private LocalDate cleanedUpOn;
@@ -78,11 +84,14 @@ public final class FlowLog {
         if(!enabled) {
             return disabled();
         }
-        ExecutorService writer = Executors.newSingleThreadExecutor(task -> {
-            Thread thread = new Thread(task, "MCME-Introduction flow log");
-            thread.setDaemon(true);
-            return thread;
-        });
+        // At most MAX_WAITING lines wait for the disk: a flood of events, such as refused logins at
+        // the proxy, can't fill the memory. Beyond it, events are dropped and that is reported.
+        ExecutorService writer = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(MAX_WAITING), task -> {
+                    Thread thread = new Thread(task, "MCME-Introduction flow log");
+                    thread.setDaemon(true);
+                    return thread;
+                });
         return new FlowLog(folder, keepDays, Clock.systemUTC(), writer, warn);
     }
 
@@ -105,26 +114,34 @@ public final class FlowLog {
         if(closed) {
             return;
         }
-        Instant time = clock.instant().truncatedTo(ChronoUnit.MILLIS);
-        String line;
-        try {
-            JsonObject json = new JsonObject();
-            json.addProperty("time", time.toString());
-            json.addProperty("event", event);
-            if(player != null) {
-                json.addProperty("uuid", player.toString());
+        // The time is taken and the line queued in one step, so lines from several threads (the
+        // proxy's logins) are written in the order of their times.
+        synchronized(this) {
+            Instant time = clock.instant().truncatedTo(ChronoUnit.MILLIS);
+            String line;
+            try {
+                JsonObject json = new JsonObject();
+                json.addProperty("time", time.toString());
+                json.addProperty("event", event);
+                if(player != null) {
+                    json.addProperty("uuid", player.toString());
+                }
+                fields.accept(json);
+                line = json.toString();
+            } catch (RuntimeException e) {
+                warn.accept("Flow log: could not record " + event + ": " + e);
+                return;
             }
-            fields.accept(json);
-            line = json.toString();
-        } catch (RuntimeException e) {
-            warn.accept("Flow log: could not record " + event + ": " + e);
-            return;
-        }
-        LocalDate day = LocalDate.ofInstant(time, ZoneOffset.UTC);
-        try {
-            writer.execute(() -> write(day, line));
-        } catch (RejectedExecutionException ignore) {
-            // Closed meanwhile.
+            LocalDate day = LocalDate.ofInstant(time, ZoneOffset.UTC);
+            try {
+                writer.execute(() -> write(day, line));
+                dropping = false;
+            } catch (RejectedExecutionException e) {
+                if(!closed && !dropping) {
+                    warn.accept("Flow log: too many events are waiting to be written; dropping events until it catches up.");
+                }
+                dropping = !closed;
+            }
         }
     }
 

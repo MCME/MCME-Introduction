@@ -15,6 +15,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -162,6 +164,44 @@ class FlowLogTest {
         assertEquals(List.of("exit"), eventNames(folder.resolve("2026-10-18.jsonl")));
         assertEquals(1, warnings.size(), "the dropped event is reported: " + warnings);
         assertTrue(warnings.getFirst().contains("enter"), warnings.getFirst());
+    }
+
+    @Test
+    void eventsTheWriterCantTakeAreDroppedAndReported() {
+        // A writer that refuses work while the log is open: its queue is full.
+        ExecutorService full = Executors.newSingleThreadExecutor();
+        full.shutdown();
+        FlowLog log = new FlowLog(folder, 90, clock, full, warnings::add);
+
+        assertDoesNotThrow(() -> log.log("refuse", null, e -> {}));
+        log.log("refuse", null, e -> {});
+
+        assertEquals(1, warnings.size(), "reported once, not per event: " + warnings);
+        assertTrue(warnings.getFirst().contains("dropp"), warnings.getFirst());
+    }
+
+    @Test
+    void linesFromManyThreadsAreWrittenInTimeOrder() throws InterruptedException {
+        // The proxy logs from several threads at once; readers rely on time order within a file.
+        FlowLog log = FlowLog.open(folder, true, 90, warnings::add);
+        List<Thread> threads = new ArrayList<>();
+        for (int t = 0; t < 8; t++) {
+            threads.add(Thread.ofPlatform().start(() -> {
+                for (int i = 0; i < 300; i++) {
+                    log.log("refuse", null, e -> {});
+                }
+            }));
+        }
+        for (Thread thread : threads) {
+            thread.join();
+        }
+        log.close();
+
+        List<Instant> times = FlowLogFiles.read(folder).stream().map(e -> Instant.parse(e.get("time").getAsString())).toList();
+        assertEquals(8 * 300, times.size());
+        for (int i = 1; i < times.size(); i++) {
+            assertFalse(times.get(i).isBefore(times.get(i - 1)), "line " + i + " is earlier than the line before it");
+        }
     }
 
     @Test
