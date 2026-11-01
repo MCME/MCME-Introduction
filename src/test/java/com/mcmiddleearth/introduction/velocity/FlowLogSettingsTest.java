@@ -30,6 +30,13 @@ class FlowLogSettingsTest {
     }
 
     @Test
+    void offTurnsTheLogOffAsOnTheBackends() throws IOException {
+        Path config = Files.writeString(dir.resolve("config.yml"), "flowLog:\n  enabled: off\n");
+
+        assertEquals(new FlowLogSettings(false, 90), FlowLogSettings.read(config));
+    }
+
+    @Test
     void missingSettingsAreTheShippedOnes() throws IOException {
         Path config = Files.writeString(dir.resolve("config.yml"), "supportedVersions: ['26.2']\n");
 

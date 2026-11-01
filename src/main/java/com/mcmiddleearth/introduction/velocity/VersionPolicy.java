@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Which client versions the proxy lets in: the backends' {@code supportedVersions}, read from the
@@ -48,8 +49,19 @@ public final class VersionPolicy {
         return new VersionPolicy(List.of(), problem, DEFAULT_MESSAGE, DEFAULT_SERVER_LIST_VERSION);
     }
 
-    /** Reads the policy from a config.yml. Never throws: a file that can't be read gives an inactive policy. */
-    public static VersionPolicy read(Path file) {
+    /** Reads the policy from a config.yml, as if every listed release were known. */
+    static VersionPolicy read(Path file) {
+        return read(file, release -> true);
+    }
+
+    /**
+     * Reads the policy from a config.yml. Never throws: a file that can't be read gives an inactive
+     * policy.
+     *
+     * @param known whether this proxy knows a release name; a list it knows none of lets every
+     *              version in, since no client could match it
+     */
+    public static VersionPolicy read(Path file, Predicate<String> known) {
         String content;
         try {
             content = Files.readString(file, StandardCharsets.UTF_8);
@@ -58,25 +70,34 @@ public final class VersionPolicy {
         } catch (IOException | RuntimeException e) {
             return inactive(file + " can't be read: " + e);
         }
-        return parse(content, file.toString());
+        return parse(content, file.toString(), known);
+    }
+
+    /** Parses a config.yml's text as if every listed release were known. */
+    static VersionPolicy parse(String content, String source) {
+        return parse(content, source, release -> true);
     }
 
     /** Parses a config.yml's text; {@code source} names it in problems. */
-    static VersionPolicy parse(String content, String source) {
+    static VersionPolicy parse(String content, String source, Predicate<String> known) {
         Node root;
         try {
             root = new Yaml().compose(new StringReader(content));
         } catch (YAMLException e) {
             return inactive(source + " is not valid YAML: " + YamlNodes.firstLine(e.getMessage()));
+        } catch (StackOverflowError | LinkageError e) {
+            // Absurdly nested YAML on SnakeYAML 1.26, which has no depth limit, or a SnakeYAML that
+            // isn't there: the check is off, the proxy goes on.
+            return inactive(source + " can't be read here: " + e);
         }
         if (!(root instanceof MappingNode map)) {
             return inactive(source + " is empty or not a YAML map.");
         }
 
         MappingNode proxy = YamlNodes.child(map, "proxy") instanceof MappingNode section ? section : null;
-        String message = YamlNodes.scalar(proxy, "messageUnsupportedVersion", DEFAULT_MESSAGE);
-        String serverListVersion = YamlNodes.scalar(proxy, "serverListVersion", DEFAULT_SERVER_LIST_VERSION);
-        if ("false".equalsIgnoreCase(YamlNodes.scalar(proxy, "versionCheck", "true").strip())) {
+        String message = YamlNodes.text(proxy, "messageUnsupportedVersion", DEFAULT_MESSAGE);
+        String serverListVersion = YamlNodes.text(proxy, "serverListVersion", DEFAULT_SERVER_LIST_VERSION);
+        if (YamlNodes.isFalse(YamlNodes.scalar(proxy, "versionCheck", "true"))) {
             return inactive("proxy.versionCheck is false in " + source + ".");
         }
 
@@ -97,6 +118,11 @@ public final class VersionPolicy {
         if (versions.isEmpty()) {
             // On a backend, [] means "only the server's own version", which the proxy can't know.
             return inactive("supportedVersions in " + source + " is empty.");
+        }
+        if (versions.stream().noneMatch(known)) {
+            // A typo such as 26.22, or versions newer than this proxy: no client could get in.
+            return inactive("none of supportedVersions in " + source + " (" + String.join(", ", versions)
+                    + ") is known to this Velocity, so no client could join.");
         }
         return new VersionPolicy(versions, null, message, serverListVersion);
     }

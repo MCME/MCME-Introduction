@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * The policy of one config.yml, read again whenever the file changes, so an edit takes effect on
@@ -15,15 +16,23 @@ import java.util.function.Consumer;
 final class VersionPolicyFile {
 
     private final Path file;
+    private final Predicate<String> known;
     private final Consumer<VersionPolicy> onChange;
     private String stamp;
     private VersionPolicy policy;
 
+    /** As if every listed release were known. */
+    VersionPolicyFile(Path file, Consumer<VersionPolicy> onChange) {
+        this(file, release -> true, onChange);
+    }
+
     /**
+     * @param known    whether this proxy knows a release name (see {@link VersionPolicy#read(Path, Predicate)})
      * @param onChange told of the policy when it is first read and after each change
      */
-    VersionPolicyFile(Path file, Consumer<VersionPolicy> onChange) {
+    VersionPolicyFile(Path file, Predicate<String> known, Consumer<VersionPolicy> onChange) {
         this.file = file;
+        this.known = known;
         this.onChange = onChange;
     }
 
@@ -36,7 +45,7 @@ final class VersionPolicyFile {
         String now = stamp();
         if (policy == null || !Objects.equals(now, stamp)) {
             stamp = now;
-            policy = VersionPolicy.read(file);
+            policy = VersionPolicy.read(file, known);
             onChange.accept(policy);
         }
         return policy;

@@ -33,7 +33,7 @@ public final class VersionCheck {
     public VersionCheck(Logger logger, Path configFile, FlowLog flowLog) {
         this.logger = logger;
         this.flowLog = flowLog;
-        this.policyFile = new VersionPolicyFile(configFile, this::policyRead);
+        this.policyFile = new VersionPolicyFile(configFile, VersionCheck::knownToVelocity, this::policyRead);
     }
 
     /** Starts the flow log and reads the policy once, which logs it. */
@@ -58,7 +58,7 @@ public final class VersionCheck {
         }
         event.setResult(PreLoginEvent.PreLoginComponentResult.denied(text(policy.message())));
         logger.info("Refused {}: client version {} is not in supportedVersions ({}).",
-                event.getUsername(), versionName(client), String.join(", ", policy.versions()));
+                printable(event.getUsername()), versionName(client), String.join(", ", policy.versions()));
         flowLog.log("refuse", null, entry -> {
             entry.addProperty("version", versionName(client));
             entry.addProperty("protocol", client.getProtocol());
@@ -132,6 +132,14 @@ public final class VersionCheck {
                         + " connect until Velocity is updated.", release, release);
             }
         }
+    }
+
+    /**
+     * A name as sent before the login, with no control characters: it is not checked yet, and a line
+     * break in it would forge a line in the proxy log.
+     */
+    static String printable(String text) {
+        return text.replaceAll("\\p{Cntrl}", "?");
     }
 
     /** A JSON text component, or plain text, as the backends' texts. */

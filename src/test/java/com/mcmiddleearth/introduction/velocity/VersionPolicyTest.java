@@ -122,6 +122,39 @@ class VersionPolicyTest {
     }
 
     @Test
+    void aListThisVelocityKnowsNothingOfLetsEveryoneIn() {
+        // A typo such as 26.22, or a version newer than this Velocity: no client could match it.
+        VersionPolicy policy = VersionPolicy.parse("supportedVersions: ['26.22']\n", "config.yml", release -> false);
+        assertInactive(policy, "none of");
+    }
+
+    @Test
+    void aListWithOneKnownVersionStaysOn() {
+        VersionPolicy policy = VersionPolicy.parse("supportedVersions: ['26.2', '26.22']\n", "config.yml", "26.2"::equals);
+        assertTrue(policy.isActive(), policy.problem());
+        assertEquals(List.of("26.2", "26.22"), policy.versions());
+    }
+
+    @Test
+    void blankTextsFallBackToTheDefaults() {
+        VersionPolicy policy = parse("""
+                supportedVersions: ['26.2']
+                proxy:
+                  messageUnsupportedVersion: ''
+                  serverListVersion: '  '
+                """);
+        assertTrue(policy.message().contains("Minecraft 26.2."), policy.message());
+        assertEquals("Minecraft 26.2", policy.serverListVersion());
+    }
+
+    @Test
+    void offAndNoAlsoTurnTheCheckOff() {
+        // As in Bukkit's YAML: off and no are false too.
+        assertInactive(parse("supportedVersions: ['26.2']\nproxy:\n  versionCheck: off\n"), "versionCheck");
+        assertInactive(parse("supportedVersions: ['26.2']\nproxy:\n  versionCheck: No\n"), "versionCheck");
+    }
+
+    @Test
     void aMissingFileLetsEveryoneIn(@TempDir Path dir) {
         assertInactive(VersionPolicy.read(dir.resolve("config.yml")), "does not exist");
     }

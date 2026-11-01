@@ -140,6 +140,24 @@ class VersionCheckTest {
     }
 
     @Test
+    void aListOfVersionsThisVelocityDoesntKnowLetsEveryoneIn() throws IOException {
+        Files.writeString(config, "supportedVersions: ['26.22']\n");
+        PreLoginEvent login = login(ProtocolVersion.MINECRAFT_26_2);
+
+        check.onPreLogin(login);
+
+        assertTrue(login.getResult().isAllowed(), "a typo must not lock the network");
+        JsonObject versions = events("versions").getLast();
+        assertFalse(versions.get("check").getAsBoolean());
+        assertTrue(versions.get("problem").getAsString().contains("none of"), versions.toString());
+    }
+
+    @Test
+    void aNameIsLoggedWithoutControlCharacters() {
+        assertEquals("Bad?Name?x", VersionCheck.printable("Bad\nName\tx"));
+    }
+
+    @Test
     void theServerListShowsTheSupportedVersions() {
         ProxyPingEvent ping = ping(ProtocolVersion.MINECRAFT_26_2);
 

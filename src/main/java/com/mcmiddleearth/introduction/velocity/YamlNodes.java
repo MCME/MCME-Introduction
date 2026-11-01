@@ -36,6 +36,21 @@ final class YamlNodes {
         return fallback;
     }
 
+    /** A text under a key of a map, or the fallback when it is missing or blank; the map may be null. */
+    static String text(MappingNode map, String key, String fallback) {
+        String value = scalar(map, key, fallback);
+        return value.isBlank() ? fallback : value;
+    }
+
+    /**
+     * Whether a scalar says false the way YAML 1.1, and so Bukkit's config, does: false, no or off,
+     * in any case.
+     */
+    static boolean isFalse(String value) {
+        String word = value.strip().toLowerCase(java.util.Locale.ROOT);
+        return word.equals("false") || word.equals("no") || word.equals("off");
+    }
+
     static String firstLine(String text) {
         if (text == null) {
             return "";

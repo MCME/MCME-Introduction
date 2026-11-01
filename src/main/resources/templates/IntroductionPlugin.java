@@ -62,9 +62,17 @@ public final class IntroductionPlugin {
         this.proxyServer = server;
         this.logger = logger;
         Path config = dataDirectory.resolve("config.yml");
-        FlowLogSettings flowLogSettings = FlowLogSettings.read(config);
-        this.flowLog = FlowLog.open(dataDirectory.resolve("flow"), flowLogSettings.enabled(), flowLogSettings.keepDays(),
-                logger::warn);
+        // Nothing may escape this constructor: Velocity would drop the whole plugin, chat hiding and all.
+        FlowLog log;
+        try {
+            FlowLogSettings flowLogSettings = FlowLogSettings.read(config);
+            log = FlowLog.open(dataDirectory.resolve("flow"), flowLogSettings.enabled(), flowLogSettings.keepDays(),
+                    logger::warn);
+        } catch (Exception | LinkageError | StackOverflowError e) {
+            logger.error("The proxy's flow log could not be opened; going on without it.", e);
+            log = FlowLog.disabled();
+        }
+        this.flowLog = log;
         this.versionCheck = new VersionCheck(logger, config, flowLog);
     }
 

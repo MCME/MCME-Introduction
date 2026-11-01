@@ -23,13 +23,14 @@ record FlowLogSettings(boolean enabled, int keepDays) {
         Node root;
         try {
             root = new Yaml().compose(new StringReader(Files.readString(configFile, StandardCharsets.UTF_8)));
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | RuntimeException | StackOverflowError | LinkageError e) {
+            // Read while the proxy constructs the plugin: nothing may escape, or the plugin is lost.
             return SHIPPED;
         }
         if (!(root instanceof MappingNode map) || !(YamlNodes.child(map, "flowLog") instanceof MappingNode flowLog)) {
             return SHIPPED;
         }
-        boolean enabled = !"false".equalsIgnoreCase(YamlNodes.scalar(flowLog, "enabled", "true").strip());
+        boolean enabled = !YamlNodes.isFalse(YamlNodes.scalar(flowLog, "enabled", "true"));
         int keepDays;
         try {
             keepDays = Integer.parseInt(YamlNodes.scalar(flowLog, "keepDays", "90").strip());
