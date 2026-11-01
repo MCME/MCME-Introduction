@@ -7,7 +7,7 @@ import com.mcmiddleearth.architect.serverResoucePack.RpPlayerStatus;
 import com.mcmiddleearth.connect.events.PlayerConnectEvent;
 import com.mcmiddleearth.introduction.paper.IntroductionChain;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
-import com.mcmiddleearth.introduction.paper.flow.FlowLogFiles;
+import com.mcmiddleearth.introduction.flow.FlowLogFiles;
 import com.mcmiddleearth.introduction.paper.listener.RoomListener;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import org.bukkit.Location;

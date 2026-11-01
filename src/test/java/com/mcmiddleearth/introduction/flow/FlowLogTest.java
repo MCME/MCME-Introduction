@@ -1,4 +1,4 @@
-package com.mcmiddleearth.introduction.paper.flow;
+package com.mcmiddleearth.introduction.flow;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.gson.JsonObject;
@@ -12,9 +12,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,9 +33,11 @@ class FlowLogTest {
     Path folder;
 
     private final SettableClock clock = new SettableClock(Instant.parse("2026-10-18T10:15:30.123Z"));
+    // What the log reported to the server's or the proxy's log.
+    private final List<String> warnings = new ArrayList<>();
 
     private FlowLog openLog(int keepDays) {
-        return new FlowLog(folder, keepDays, clock, MoreExecutors.newDirectExecutorService(), Logger.getAnonymousLogger());
+        return new FlowLog(folder, keepDays, clock, MoreExecutors.newDirectExecutorService(), warnings::add);
     }
 
     @Test
@@ -158,6 +160,8 @@ class FlowLogTest {
         log.log("exit", PLAYER, e -> {});
 
         assertEquals(List.of("exit"), eventNames(folder.resolve("2026-10-18.jsonl")));
+        assertEquals(1, warnings.size(), "the dropped event is reported: " + warnings);
+        assertTrue(warnings.getFirst().contains("enter"), warnings.getFirst());
     }
 
     @Test

@@ -7,7 +7,7 @@ import com.mcmiddleearth.introduction.paper.command.IntroCommand;
 import com.mcmiddleearth.introduction.paper.confirmData.ConfirmDataManager;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents;
 import com.mcmiddleearth.introduction.paper.flow.FlowEvents.Exit;
-import com.mcmiddleearth.introduction.paper.flow.FlowLog;
+import com.mcmiddleearth.introduction.flow.FlowLog;
 import com.mcmiddleearth.introduction.paper.listener.ChatPacketListener;
 import com.mcmiddleearth.introduction.paper.listener.ConfirmPreLoginListener;
 import com.mcmiddleearth.introduction.paper.listener.GlowListener;
@@ -146,7 +146,8 @@ public class IntroductionPlugin extends JavaPlugin {
     }
 
     public void loadData() {
-        flowLog = FlowLog.open(getDataFolder(), getConfig(), getLogger());
+        flowLog = FlowLog.open(getDataFolder().toPath().resolve("flow"), getConfig().getBoolean("flowLog.enabled", true),
+                getConfig().getInt("flowLog.keepDays", 90), getLogger()::warning);
         IntroductionChain.load();
         YamlConfiguration locationConfig = new YamlConfiguration();
         try {

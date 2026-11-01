@@ -1,10 +1,8 @@
-package com.mcmiddleearth.introduction.paper.flow;
+package com.mcmiddleearth.introduction.flow;
 
 import com.google.gson.JsonObject;
-import org.bukkit.configuration.ConfigurationSection;
 
 import javax.annotation.Nullable;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -22,7 +20,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,14 +28,15 @@ import static java.nio.file.StandardOpenOption.CREATE;
 
 /**
  * The flow log: one JSON object per line for each step a player takes through the rooms, in a
- * file per UTC day, flow/YYYY-MM-DD.jsonl in the plugin's folder. {@link FlowEvents} says which
- * events there are; docs/flow-log.md in the repository describes them for readers such as
- * hub-flow.
+ * file per UTC day, flow/YYYY-MM-DD.jsonl in the plugin's folder. The backend's FlowEvents and
+ * the proxy's VersionCheck say which events there are; docs/flow-log.md in the repository
+ * describes them for readers such as hub-flow. It uses nothing of Paper or Velocity, so both sides
+ * of the plugin write their log with it.
  * <p>
- * {@link #log} is called on the server thread, which builds the line: player state is only safe
- * to read there. One background thread writes the lines, so the server never waits for the disk.
- * Each line is appended on its own, so a reader can read a file at any time; only a last line
- * still being written can be incomplete.
+ * On the backend {@link #log} is called on the server thread, which builds the line: player state
+ * is only safe to read there. One background thread writes the lines, so the server never waits
+ * for the disk. Each line is appended on its own, so a reader can read a file at any time; only a
+ * last line still being written can be incomplete.
  */
 public final class FlowLog {
 
@@ -48,19 +46,20 @@ public final class FlowLog {
     private final int keepDays;
     private final Clock clock;
     private final ExecutorService writer;
-    private final Logger logger;
+    // Where a problem is reported: the server's or the proxy's log.
+    private final Consumer<String> warn;
     private volatile boolean closed;
 
     // Used by the writer thread only.
     private LocalDate cleanedUpOn;
     private boolean writeFailing;
 
-    FlowLog(Path folder, int keepDays, Clock clock, ExecutorService writer, Logger logger) {
+    FlowLog(Path folder, int keepDays, Clock clock, ExecutorService writer, Consumer<String> warn) {
         this.folder = folder;
         this.keepDays = keepDays;
         this.clock = clock;
         this.writer = writer;
-        this.logger = logger;
+        this.warn = warn;
     }
 
     private FlowLog() {
@@ -69,10 +68,14 @@ public final class FlowLog {
     }
 
     /**
-     * The log as config.yml sets it: flowLog.enabled and flowLog.keepDays.
+     * The log as config.yml sets it, with flowLog.enabled and flowLog.keepDays.
+     *
+     * @param folder   the folder for the day files
+     * @param keepDays days to keep; 0 keeps them all
+     * @param warn     where problems are reported
      */
-    public static FlowLog open(File pluginFolder, ConfigurationSection config, Logger logger) {
-        if(!config.getBoolean("flowLog.enabled", true)) {
+    public static FlowLog open(Path folder, boolean enabled, int keepDays, Consumer<String> warn) {
+        if(!enabled) {
             return disabled();
         }
         ExecutorService writer = Executors.newSingleThreadExecutor(task -> {
@@ -80,8 +83,7 @@ public final class FlowLog {
             thread.setDaemon(true);
             return thread;
         });
-        return new FlowLog(new File(pluginFolder, "flow").toPath(), config.getInt("flowLog.keepDays", 90),
-                           Clock.systemUTC(), writer, logger);
+        return new FlowLog(folder, keepDays, Clock.systemUTC(), writer, warn);
     }
 
     /**
@@ -115,7 +117,7 @@ public final class FlowLog {
             fields.accept(json);
             line = json.toString();
         } catch (RuntimeException e) {
-            logger.warning("Flow log: could not record " + event + ": " + e);
+            warn.accept("Flow log: could not record " + event + ": " + e);
             return;
         }
         LocalDate day = LocalDate.ofInstant(time, ZoneOffset.UTC);
@@ -137,7 +139,7 @@ public final class FlowLog {
         writer.shutdown();
         try {
             if(!writer.awaitTermination(5, TimeUnit.SECONDS)) {
-                logger.warning("Flow log: some events were not written in time and are lost.");
+                warn.accept("Flow log: some events were not written in time and are lost.");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -157,7 +159,7 @@ public final class FlowLog {
         } catch (IOException | RuntimeException e) {
             // Once per failing spell, not once per event.
             if(!writeFailing) {
-                logger.warning("Flow log: could not write to " + folder + ": " + e);
+                warn.accept("Flow log: could not write to " + folder + ": " + e);
             }
             writeFailing = true;
         }
@@ -176,7 +178,7 @@ public final class FlowLog {
                 }
             }
         } catch (IOException | RuntimeException e) {
-            logger.warning("Flow log: could not look for old days in " + folder + ": " + e);
+            warn.accept("Flow log: could not look for old days in " + folder + ": " + e);
         }
     }
 
@@ -185,7 +187,7 @@ public final class FlowLog {
         try {
             Files.deleteIfExists(file);
         } catch (IOException e) {
-            logger.warning("Flow log: could not delete " + file.getFileName() + ": " + e);
+            warn.accept("Flow log: could not delete " + file.getFileName() + ": " + e);
         }
     }
 
