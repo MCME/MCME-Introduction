@@ -2,6 +2,7 @@ package com.mcmiddleearth.introduction.paper.flow;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.mcmiddleearth.introduction.flow.FlowLog;
 import com.mcmiddleearth.introduction.paper.IntroductionPlugin;
 import com.mcmiddleearth.introduction.paper.rooms.Room;
 import com.mcmiddleearth.introduction.paper.rooms.SecondRoom;

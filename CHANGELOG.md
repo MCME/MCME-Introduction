@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.5.0] - unreleased
+
+### Added
+- **The proxy enforces `supportedVersions`.** The proxy's `plugins/mcme-introduction/config.yml` is
+  a link to the backends' `config.yml`. A client whose version is not in `supportedVersions` is
+  refused before Mojang's login, with `proxy.messageUnsupportedVersion`; logins another plugin
+  refused are left alone. The server list shows `proxy.serverListVersion` ("Minecraft 26.2, 26.3"),
+  in red for clients on other versions. The proxy reads the file again when it changes: adding a
+  version needs no restart. This replaces the hand-kept copies of the list in ViaVersion's
+  `block-versions`, Spigot's `outdated-client` texts and the server-list version text.
+- It fails open: without the link, with invalid YAML, a missing, empty or malformed list, a list
+  with no version this Velocity knows, or `proxy.versionCheck: false`, every version gets in, with
+  a warning in the proxy log saying why.
+- **The proxy writes a flow log** in its `plugins/mcme-introduction/flow/`, with the same format
+  and `flowLog` settings: `start`, the enforced versions (`versions`), each refused client's
+  version and protocol (`refuse`, no name or UUID) and `stop`. A refused client never reaches the
+  hub, so this keeps hub-flow's picture of newcomers complete. `docs/flow-log.md` describes it.
+
+### Changed
+- The flow log's writer moved to `com.mcmiddleearth.introduction.flow` and no longer needs Paper,
+  so both sides of the plugin use it. The backend's log is unchanged.
+
 ## [1.4.1] - 2026-10-19
 
 Fixes from the audit of 2026-10-19. This release also brings 1.4.0, the flow log, which was not

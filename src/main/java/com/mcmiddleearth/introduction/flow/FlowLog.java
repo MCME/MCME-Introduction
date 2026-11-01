@@ -1,10 +1,8 @@
-package com.mcmiddleearth.introduction.paper.flow;
+package com.mcmiddleearth.introduction.flow;
 
 import com.google.gson.JsonObject;
-import org.bukkit.configuration.ConfigurationSection;
 
 import javax.annotation.Nullable;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -18,11 +16,11 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,36 +29,43 @@ import static java.nio.file.StandardOpenOption.CREATE;
 
 /**
  * The flow log: one JSON object per line for each step a player takes through the rooms, in a
- * file per UTC day, flow/YYYY-MM-DD.jsonl in the plugin's folder. {@link FlowEvents} says which
- * events there are; docs/flow-log.md in the repository describes them for readers such as
- * hub-flow.
+ * file per UTC day, flow/YYYY-MM-DD.jsonl in the plugin's folder. The backend's FlowEvents and
+ * the proxy's VersionCheck say which events there are; docs/flow-log.md in the repository
+ * describes them for readers such as hub-flow. It uses nothing of Paper or Velocity, so both sides
+ * of the plugin write their log with it.
  * <p>
- * {@link #log} is called on the server thread, which builds the line: player state is only safe
- * to read there. One background thread writes the lines, so the server never waits for the disk.
- * Each line is appended on its own, so a reader can read a file at any time; only a last line
- * still being written can be incomplete.
+ * On the backend {@link #log} is called on the server thread, which builds the line: player state
+ * is only safe to read there. On the proxy it is called from several threads at once. One
+ * background thread writes the lines, in the order of their times, so neither waits for the disk.
+ * Each line is appended on its own, so a reader can read a file at any time; only a last line still
+ * being written can be incomplete.
  */
 public final class FlowLog {
 
     private static final Pattern DAY_FILE = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})\\.jsonl");
+    // Lines that may wait for the disk at once.
+    static final int MAX_WAITING = 10_000;
 
     private final Path folder;
     private final int keepDays;
     private final Clock clock;
     private final ExecutorService writer;
-    private final Logger logger;
+    // Where a problem is reported: the server's or the proxy's log.
+    private final Consumer<String> warn;
     private volatile boolean closed;
+    // Whether events are being dropped because too many wait to be written; reported once per spell.
+    private volatile boolean dropping;
 
     // Used by the writer thread only.
     private LocalDate cleanedUpOn;
     private boolean writeFailing;
 
-    FlowLog(Path folder, int keepDays, Clock clock, ExecutorService writer, Logger logger) {
+    FlowLog(Path folder, int keepDays, Clock clock, ExecutorService writer, Consumer<String> warn) {
         this.folder = folder;
         this.keepDays = keepDays;
         this.clock = clock;
         this.writer = writer;
-        this.logger = logger;
+        this.warn = warn;
     }
 
     private FlowLog() {
@@ -69,19 +74,25 @@ public final class FlowLog {
     }
 
     /**
-     * The log as config.yml sets it: flowLog.enabled and flowLog.keepDays.
+     * The log as config.yml sets it, with flowLog.enabled and flowLog.keepDays.
+     *
+     * @param folder   the folder for the day files
+     * @param keepDays days to keep; 0 keeps them all
+     * @param warn     where problems are reported
      */
-    public static FlowLog open(File pluginFolder, ConfigurationSection config, Logger logger) {
-        if(!config.getBoolean("flowLog.enabled", true)) {
+    public static FlowLog open(Path folder, boolean enabled, int keepDays, Consumer<String> warn) {
+        if(!enabled) {
             return disabled();
         }
-        ExecutorService writer = Executors.newSingleThreadExecutor(task -> {
-            Thread thread = new Thread(task, "MCME-Introduction flow log");
-            thread.setDaemon(true);
-            return thread;
-        });
-        return new FlowLog(new File(pluginFolder, "flow").toPath(), config.getInt("flowLog.keepDays", 90),
-                           Clock.systemUTC(), writer, logger);
+        // At most MAX_WAITING lines wait for the disk: a flood of events, such as refused logins at
+        // the proxy, can't fill the memory. Beyond it, events are dropped and that is reported.
+        ExecutorService writer = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(MAX_WAITING), task -> {
+                    Thread thread = new Thread(task, "MCME-Introduction flow log");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        return new FlowLog(folder, keepDays, Clock.systemUTC(), writer, warn);
     }
 
     /**
@@ -103,26 +114,34 @@ public final class FlowLog {
         if(closed) {
             return;
         }
-        Instant time = clock.instant().truncatedTo(ChronoUnit.MILLIS);
-        String line;
-        try {
-            JsonObject json = new JsonObject();
-            json.addProperty("time", time.toString());
-            json.addProperty("event", event);
-            if(player != null) {
-                json.addProperty("uuid", player.toString());
+        // The time is taken and the line queued in one step, so lines from several threads (the
+        // proxy's logins) are written in the order of their times.
+        synchronized(this) {
+            Instant time = clock.instant().truncatedTo(ChronoUnit.MILLIS);
+            String line;
+            try {
+                JsonObject json = new JsonObject();
+                json.addProperty("time", time.toString());
+                json.addProperty("event", event);
+                if(player != null) {
+                    json.addProperty("uuid", player.toString());
+                }
+                fields.accept(json);
+                line = json.toString();
+            } catch (RuntimeException e) {
+                warn.accept("Flow log: could not record " + event + ": " + e);
+                return;
             }
-            fields.accept(json);
-            line = json.toString();
-        } catch (RuntimeException e) {
-            logger.warning("Flow log: could not record " + event + ": " + e);
-            return;
-        }
-        LocalDate day = LocalDate.ofInstant(time, ZoneOffset.UTC);
-        try {
-            writer.execute(() -> write(day, line));
-        } catch (RejectedExecutionException ignore) {
-            // Closed meanwhile.
+            LocalDate day = LocalDate.ofInstant(time, ZoneOffset.UTC);
+            try {
+                writer.execute(() -> write(day, line));
+                dropping = false;
+            } catch (RejectedExecutionException e) {
+                if(!closed && !dropping) {
+                    warn.accept("Flow log: too many events are waiting to be written; dropping events until it catches up.");
+                }
+                dropping = !closed;
+            }
         }
     }
 
@@ -137,7 +156,7 @@ public final class FlowLog {
         writer.shutdown();
         try {
             if(!writer.awaitTermination(5, TimeUnit.SECONDS)) {
-                logger.warning("Flow log: some events were not written in time and are lost.");
+                warn.accept("Flow log: some events were not written in time and are lost.");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -157,7 +176,7 @@ public final class FlowLog {
         } catch (IOException | RuntimeException e) {
             // Once per failing spell, not once per event.
             if(!writeFailing) {
-                logger.warning("Flow log: could not write to " + folder + ": " + e);
+                warn.accept("Flow log: could not write to " + folder + ": " + e);
             }
             writeFailing = true;
         }
@@ -176,7 +195,7 @@ public final class FlowLog {
                 }
             }
         } catch (IOException | RuntimeException e) {
-            logger.warning("Flow log: could not look for old days in " + folder + ": " + e);
+            warn.accept("Flow log: could not look for old days in " + folder + ": " + e);
         }
     }
 
@@ -185,7 +204,7 @@ public final class FlowLog {
         try {
             Files.deleteIfExists(file);
         } catch (IOException e) {
-            logger.warning("Flow log: could not delete " + file.getFileName() + ": " + e);
+            warn.accept("Flow log: could not delete " + file.getFileName() + ": " + e);
         }
     }
 

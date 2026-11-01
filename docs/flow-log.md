@@ -20,7 +20,10 @@ Since 1.4.0. `flowLog` in `config.yml` turns it off or sets how long it is kept 
   Only files named like `2026-10-18.jsonl` are touched.
 - Each server with the plugin writes its own log. Only the server with the rooms (the hub) records
   rooms; the others record only `start`, `stop`, `reminder` and `confirm`.
-- Players appear by UUID only, never by name.
+- Since 1.5.0 the proxy writes its own log too, in its `plugins/mcme-introduction/flow/`, with the
+  same format and settings: the client versions it refuses at the door. See
+  [the proxy's log](#the-proxys-log).
+- Players appear by UUID only, never by name. The proxy's log has neither.
 
 ## Changes to this format
 
@@ -33,7 +36,7 @@ meaning under its name; a changed meaning gets a new name.
 |-------|---------|
 | `time` | When it happened, in UTC, ISO 8601 with milliseconds: `2026-10-18T21:24:59.550Z`. A time on a whole second has no fraction: `2026-10-18T21:25:00Z`. |
 | `event` | The event's name, below. |
-| `uuid` | The player's UUID. Not on `start` and `stop`. |
+| `uuid` | The player's UUID. Not on `start` and `stop`, and never in the proxy's log. |
 
 ## Events
 
@@ -107,6 +110,32 @@ no `pack` event for that visit.
 | `quit` | Left the server. |
 | `left` | Got out of the room another way, such as a teleport by staff. |
 | `stopped` | The plugin stopped: a server shutdown, or `/intro reload`. |
+
+## The proxy's log
+
+Since 1.5.0 the proxy refuses client versions that are not in `supportedVersions` before the login
+(see [configuration.md](configuration.md), `proxy`). A refused client never reaches the hub, so the
+rooms can't record it: the proxy writes these events to its own
+`plugins/mcme-introduction/flow/YYYY-MM-DD.jsonl`. They carry no `uuid` and no name.
+
+| Event | When | Fields |
+|-------|------|--------|
+| `start` | The proxy started | `plugin` |
+| `versions` | The proxy read the list: at its start, and after each change of the file | `check`, `supportedVersions`, `problem` |
+| `refuse` | A client was refused at the door for its version | `version`, `protocol` |
+| `stop` | The proxy stopped | |
+
+| Field | Events | Meaning |
+|-------|--------|---------|
+| `check` | `versions` | Whether the check is on. `false` lets every version in: the check is turned off, or the file can't be read. |
+| `supportedVersions` | `versions` | The versions the proxy lets in, as listed; empty when `check` is `false`. |
+| `problem` | `versions` | Why the check is off; only when `check` is `false`. |
+| `version` | `refuse` | The client's Minecraft version, named as on the backends: `26.2`, or `26.1-26.1.2` for releases that share a protocol. |
+| `protocol` | `refuse` | The client's protocol number. |
+
+A refused client tries again with the same version as a new `refuse`, so count refusals per day and
+version, not players. A player who comes back with a supported version shows up in the hub's log as a
+newcomer, with nothing to tie them to their refusals.
 
 ## Reading the log
 
